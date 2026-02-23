@@ -29,6 +29,23 @@ button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
 .primary{background:var(--accent);color:#fff}
 .callBox{position:fixed;bottom:20px;right:20px;background:#fff;padding:15px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);display:none}
 
+#incomingCall{
+    position:fixed;inset:0;background:rgba(0,0,0,.55);
+    display:none;align-items:center;justify-content:center;z-index:900;
+}
+#incomingBox{
+    background:#fff;border-radius:16px;padding:28px 32px;
+    box-shadow:0 12px 40px rgba(0,0,0,.25);text-align:center;
+    display:flex;flex-direction:column;gap:14px;min-width:240px;
+}
+#incomingBox .caller{font-size:1.1rem;font-weight:bold;color:#111}
+#incomingBox .sub{font-size:13px;color:#64748b}
+.call-btns{display:flex;gap:10px;justify-content:center}
+#acceptCall{background:#16a34a;color:#fff;padding:10px 22px;font-size:15px}
+#acceptCall:hover{background:#15803d}
+#rejectCall{background:#dc2626;color:#fff;padding:10px 22px;font-size:15px}
+#rejectCall:hover{background:#b91c1c}
+
 #authOverlay{
     position:fixed;inset:0;background:rgba(0,0,0,.45);
     display:flex;align-items:center;justify-content:center;
@@ -119,12 +136,24 @@ button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
 <button id="endCall">Завершить</button>
 </div>
 
+<div id="incomingCall">
+  <div id="incomingBox">
+    <div class="caller" id="incomingCaller">Неизвестный</div>
+    <div class="sub">Входящий звонок...</div>
+    <div class="call-btns">
+      <button id="acceptCall">Принять</button>
+      <button id="rejectCall">Отклонить</button>
+    </div>
+  </div>
+</div>
+
 <div id="ctxMenu">
   <button id="ctxClear">Очистить чат</button>
   <button id="ctxDelete" class="danger">Удалить контакт</button>
 </div>
 
 <audio id="msgSound" src="message.mp3" preload="auto"></audio>
+<audio id="callSound" src="call.mp3" preload="auto" loop></audio>
 
 <script>
 let socket;
@@ -154,6 +183,12 @@ const authToggle = document.getElementById("authToggle");
 const authSwitch = document.getElementById("authSwitch");
 const voiceBtn = document.getElementById("voiceBtn");
 const fileInput = document.getElementById("fileInput");
+const callSound = document.getElementById("callSound");
+const incomingCall = document.getElementById("incomingCall");
+const incomingCaller = document.getElementById("incomingCaller");
+
+// pending incoming offer — stored until user accepts/rejects
+let pendingOffer = null;
 
 function save() { localStorage.setItem("messenger_state", JSON.stringify(state)); }
 
@@ -520,21 +555,35 @@ document.getElementById("addFriend").onclick = () => {
 };
 
 // --- Call ---
+function stopCallSound() {
+    callSound.pause();
+    callSound.currentTime = 0;
+}
+
+function endActiveCall() {
+    if (peer) { peer.close(); peer = null; }
+    if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+    stopCallSound();
+    callBox.style.display = "none";
+}
+
 async function startCall() {
     if (!active) return;
-    peer = createPeer();
+    peer = createPeer(active);
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     localStream.getTracks().forEach(t => peer.addTrack(t, localStream));
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
     socket.send(JSON.stringify({ type: "signal", from: myName, to: active, data: offer }));
+    document.getElementById("callStatus").textContent = "Ожидание ответа...";
+    callBox.style.display = "block";
 }
 
-function createPeer() {
+function createPeer(callTarget) {
     const pc = new RTCPeerConnection();
     pc.onicecandidate = e => {
         if (e.candidate) {
-            socket.send(JSON.stringify({ type: "signal", from: myName, to: active, data: e.candidate }));
+            socket.send(JSON.stringify({ type: "signal", from: myName, to: callTarget, data: e.candidate }));
         }
     };
     pc.ontrack = e => {
@@ -542,33 +591,76 @@ function createPeer() {
         audio.srcObject = e.streams[0];
         audio.play();
     };
+    pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "connected") {
+            document.getElementById("callStatus").textContent = "Звонок с " + callTarget;
+        }
+    };
     return pc;
 }
 
 async function handleSignal(data) {
-    if (!peer) peer = createPeer();
     if (data.data.type === "offer") {
-        active = data.from;
-        chatHeader.textContent = "Чат с " + active;
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        localStream.getTracks().forEach(t => peer.addTrack(t, localStream));
-        await peer.setRemoteDescription(new RTCSessionDescription(data.data));
-        const answer = await peer.createAnswer();
-        await peer.setLocalDescription(answer);
-        socket.send(JSON.stringify({ type: "signal", from: myName, to: data.from, data: answer }));
-        callBox.style.display = "block";
+        // Store offer and show incoming call UI
+        pendingOffer = data;
+        incomingCaller.textContent = data.from;
+        incomingCall.style.display = "flex";
+        callSound.play().catch(() => {});
+
     } else if (data.data.type === "answer") {
+        if (!peer) return;
+        stopCallSound();
         await peer.setRemoteDescription(new RTCSessionDescription(data.data));
-        callBox.style.display = "block";
+        document.getElementById("callStatus").textContent = "Звонок...";
+
+    } else if (data.data === "rejected") {
+        stopCallSound();
+        endActiveCall();
+        document.getElementById("callStatus").textContent = "Звонок отклонён";
+
     } else {
-        try { await peer.addIceCandidate(new RTCIceCandidate(data.data)); } catch {}
+        // ICE candidate
+        if (peer) {
+            try { await peer.addIceCandidate(new RTCIceCandidate(data.data)); } catch {}
+        }
     }
 }
 
+document.getElementById("acceptCall").onclick = async () => {
+    if (!pendingOffer) return;
+    const data = pendingOffer;
+    pendingOffer = null;
+    incomingCall.style.display = "none";
+    stopCallSound();
+
+    active = data.from;
+    chatHeader.textContent = "Чат с " + active;
+
+    peer = createPeer(data.from);
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    localStream.getTracks().forEach(t => peer.addTrack(t, localStream));
+
+    await peer.setRemoteDescription(new RTCSessionDescription(data.data));
+    const answer = await peer.createAnswer();
+    await peer.setLocalDescription(answer);
+    socket.send(JSON.stringify({ type: "signal", from: myName, to: data.from, data: answer }));
+
+    document.getElementById("callStatus").textContent = "Звонок с " + data.from;
+    callBox.style.display = "block";
+};
+
+document.getElementById("rejectCall").onclick = () => {
+    if (!pendingOffer) return;
+    const from = pendingOffer.from;
+    pendingOffer = null;
+    incomingCall.style.display = "none";
+    stopCallSound();
+    socket.send(JSON.stringify({ type: "signal", from: myName, to: from, data: "rejected" }));
+};
+
 document.getElementById("callBtn").onclick = startCall;
 document.getElementById("endCall").onclick = () => {
-    if (peer) peer.close();
-    callBox.style.display = "none";
+    endActiveCall();
 };
 
 renderContacts();
