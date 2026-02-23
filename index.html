@@ -119,7 +119,7 @@ function connect(){
     myName=document.getElementById("myName").value.trim();
     if(!myName) return alert("Введите ник");
 
-    socket=new WebSocket("ws://localhost:3000");
+    socket=new WebSocket("wss://" + location.host);
 
     socket.onopen=()=>{
         socket.send(JSON.stringify({type:"auth",name:myName}));
