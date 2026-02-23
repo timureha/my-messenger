@@ -142,6 +142,12 @@ wss.on('connection', ws => {
                 clients[data.to].send(JSON.stringify(data));
             }
         }
+
+        if (data.type === "typing") {
+            if (clients[data.to]) {
+                clients[data.to].send(JSON.stringify(data));
+            }
+        }
     });
 
     ws.on('close', () => {
