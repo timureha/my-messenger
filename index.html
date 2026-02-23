@@ -13,7 +13,10 @@ body{margin:0;background:var(--bg);height:100vh;display:flex}
 .panel{background:#fff;border-radius:10px;box-shadow:0 8px 25px rgba(0,0,0,.08);display:flex;flex-direction:column}
 .top{padding:12px;border-bottom:1px solid #eee;font-weight:bold}
 .contacts{flex:1;overflow:auto}
-.contact{padding:10px;border-bottom:1px solid #eee;cursor:pointer;display:flex;justify-content:space-between}
+.contact{padding:10px;border-bottom:1px solid #eee;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.contact .name{display:flex;align-items:center;gap:6px}
+.unread{font-weight:bold}
+.badge{background:#ef4444;color:white;border-radius:12px;padding:2px 8px;font-size:12px}
 .online{color:green;font-size:12px}
 .offline{color:red;font-size:12px}
 .messages{flex:1;padding:15px;overflow:auto}
@@ -34,6 +37,7 @@ button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
 <div class="panel">
 <div class="top">
 <input id="myName" placeholder="Ваш ник">
+<input id="myPassword" type="password" placeholder="Пароль">
 <button id="connectBtn">Войти</button>
 </div>
 
@@ -67,189 +71,243 @@ button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
 
 <script>
 let socket;
-let myName="";
-let state = JSON.parse(localStorage.getItem("messenger_state") || '{"contacts":[],"conversations":{},"online":{}}');
-let active=null;
+let myName = "";
+let state = JSON.parse(localStorage.getItem("messenger_state") || '{"contacts":[],"conversations":{},"online":{},"lastActivity":{},"unread":{}}');
+let active = null;
 
 let peer;
 let localStream;
 
-const contactsEl=document.getElementById("contacts");
-const messagesEl=document.getElementById("messages");
-const chatHeader=document.getElementById("chatHeader");
-const msgSound=document.getElementById("msgSound");
-const callBox=document.getElementById("callBox");
+const contactsEl = document.getElementById("contacts");
+const messagesEl = document.getElementById("messages");
+const chatHeader = document.getElementById("chatHeader");
+const msgSound = document.getElementById("msgSound");
+const callBox = document.getElementById("callBox");
 
-function save(){ localStorage.setItem("messenger_state", JSON.stringify(state)); }
+// Инициализация недостающих полей (для старых сохранений)
+if (!state.lastActivity) state.lastActivity = {};
+if (!state.unread) state.unread = {};
 
-function renderContacts(){
-    contactsEl.innerHTML="";
-    state.contacts.forEach(name=>{
-        let d=document.createElement("div");
-        d.className="contact";
-        d.innerHTML=`
-            <span>${name}</span>
-            <span class="${state.online[name]?"online":"offline"}">
-                ${state.online[name]?"● online":"● offline"}
+function save() {
+    localStorage.setItem("messenger_state", JSON.stringify(state));
+}
+
+function renderContacts() {
+    // Сортируем контакты: сначала те, у кого есть lastActivity (по убыванию), потом остальные по алфавиту
+    const sorted = [...state.contacts].sort((a, b) => {
+        const tA = state.lastActivity[a] || 0;
+        const tB = state.lastActivity[b] || 0;
+        if (tA !== tB) return tB - tA;
+        return a.localeCompare(b);
+    });
+
+    contactsEl.innerHTML = "";
+    sorted.forEach(name => {
+        const unreadCount = state.unread[name] || 0;
+        const div = document.createElement("div");
+        div.className = "contact";
+        div.innerHTML = `
+            <span class="name ${unreadCount > 0 ? 'unread' : ''}">
+                ${name}
+                ${unreadCount > 0 ? `<span class="badge">${unreadCount}</span>` : ''}
+            </span>
+            <span class="${state.online[name] ? 'online' : 'offline'}">
+                ${state.online[name] ? '● online' : '● offline'}
             </span>
         `;
-        d.onclick=()=>{
-            active=name;
-            chatHeader.textContent="Чат с "+name;
+        div.onclick = () => {
+            active = name;
+            chatHeader.textContent = "Чат с " + name;
+            // Сбрасываем непрочитанные при открытии чата
+            if (state.unread[name]) {
+                state.unread[name] = 0;
+                save();
+            }
             renderMessages();
+            renderContacts(); // чтобы убрать жирность/бейдж
         };
-        contactsEl.appendChild(d);
+        contactsEl.appendChild(div);
     });
 }
 
-function renderMessages(){
-    messagesEl.innerHTML="";
-    if(!active) return;
+function renderMessages() {
+    messagesEl.innerHTML = "";
+    if (!active) return;
 
-    let conv=state.conversations[active]||[];
-    conv.forEach(m=>{
-        let d=document.createElement("div");
-        d.className="message "+(m.from===myName?"me":"them");
-        d.textContent=m.text;
-        messagesEl.appendChild(d);
+    const conv = state.conversations[active] || [];
+    conv.forEach(m => {
+        const div = document.createElement("div");
+        div.className = "message " + (m.from === myName ? "me" : "them");
+        div.textContent = m.text;
+        messagesEl.appendChild(div);
     });
+    // Прокрутка вниз
+    messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function connect(){
-    myName=document.getElementById("myName").value.trim();
-    if(!myName) return alert("Введите ник");
+function connect() {
+    myName = document.getElementById("myName").value.trim();
+    const password = document.getElementById("myPassword").value.trim();
+    if (!myName || !password) return alert("Введите ник и пароль");
 
-    socket=new WebSocket("wss://" + location.host);
+    socket = new WebSocket("ws://localhost:3000");
 
-    socket.onopen=()=>{
-        socket.send(JSON.stringify({type:"auth",name:myName}));
+    socket.onopen = () => {
+        socket.send(JSON.stringify({ type: "auth", name: myName, password }));
     };
 
-    socket.onmessage=async e=>{
-        let data=JSON.parse(e.data);
+    socket.onmessage = async e => {
+        let data = JSON.parse(e.data);
 
-        if(data.type==="onlineList"){
-            state.online=data.users;
-            save(); renderContacts();
+        if (data.type === "error") {
+            alert("Ошибка: " + data.message);
+            socket.close();
+            return;
         }
 
-        if(data.type==="message"){
-            if(!state.conversations[data.from])
-                state.conversations[data.from]=[];
+        if (data.type === "onlineList") {
+            state.online = data.users;
+            save();
+            renderContacts();
+        }
+
+        if (data.type === "message") {
+            // Сохраняем сообщение
+            if (!state.conversations[data.from])
+                state.conversations[data.from] = [];
             state.conversations[data.from].push(data);
-            if(!state.contacts.includes(data.from))
+            if (!state.contacts.includes(data.from))
                 state.contacts.push(data.from);
+
+            // Обновляем активность
+            state.lastActivity[data.from] = Date.now();
+
+            // Увеличиваем счётчик непрочитанных, если это не активный чат
+            if (active !== data.from) {
+                state.unread[data.from] = (state.unread[data.from] || 0) + 1;
+            }
+
             msgSound.play();
-            save(); renderContacts(); renderMessages();
+            save();
+            renderContacts();
+            renderMessages();
         }
 
-        if(data.type==="signal"){
+        if (data.type === "signal") {
             await handleSignal(data);
         }
     };
+
+    socket.onclose = () => {
+        // Можно показать уведомление
+    };
 }
 
-async function startCall(){
-    if(!active) return;
+async function startCall() {
+    if (!active) return;
+    peer = createPeer();
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    localStream.getTracks().forEach(t => peer.addTrack(t, localStream));
 
-    peer=createPeer();
-    localStream=await navigator.mediaDevices.getUserMedia({audio:true});
-    localStream.getTracks().forEach(t=>peer.addTrack(t,localStream));
-
-    const offer=await peer.createOffer();
+    const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
 
     socket.send(JSON.stringify({
-        type:"signal",
-        from:myName,
-        to:active,
-        data:offer
+        type: "signal",
+        from: myName,
+        to: active,
+        data: offer
     }));
 }
 
-function createPeer(){
-    const pc=new RTCPeerConnection();
+function createPeer() {
+    const pc = new RTCPeerConnection();
 
-    pc.onicecandidate=e=>{
-        if(e.candidate){
+    pc.onicecandidate = e => {
+        if (e.candidate) {
             socket.send(JSON.stringify({
-                type:"signal",
-                from:myName,
-                to:active,
-                data:e.candidate
+                type: "signal",
+                from: myName,
+                to: active,
+                data: e.candidate
             }));
         }
     };
 
-    pc.ontrack=e=>{
-        const audio=new Audio();
-        audio.srcObject=e.streams[0];
+    pc.ontrack = e => {
+        const audio = new Audio();
+        audio.srcObject = e.streams[0];
         audio.play();
     };
 
     return pc;
 }
 
-async function handleSignal(data){
-    if(!peer) peer=createPeer();
+async function handleSignal(data) {
+    if (!peer) peer = createPeer();
 
-    if(data.data.type==="offer"){
-        active=data.from;
-        chatHeader.textContent="Чат с "+active;
+    if (data.data.type === "offer") {
+        active = data.from;
+        chatHeader.textContent = "Чат с " + active;
 
-        localStream=await navigator.mediaDevices.getUserMedia({audio:true});
-        localStream.getTracks().forEach(t=>peer.addTrack(t,localStream));
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStream.getTracks().forEach(t => peer.addTrack(t, localStream));
 
         await peer.setRemoteDescription(new RTCSessionDescription(data.data));
-        const answer=await peer.createAnswer();
+        const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
 
         socket.send(JSON.stringify({
-            type:"signal",
-            from:myName,
-            to:data.from,
-            data:answer
+            type: "signal",
+            from: myName,
+            to: data.from,
+            data: answer
         }));
 
-        callBox.style.display="block";
-    }
-
-    else if(data.data.type==="answer"){
+        callBox.style.display = "block";
+    } else if (data.data.type === "answer") {
         await peer.setRemoteDescription(new RTCSessionDescription(data.data));
-        callBox.style.display="block";
-    }
-
-    else{
-        try{
+        callBox.style.display = "block";
+    } else {
+        try {
             await peer.addIceCandidate(new RTCIceCandidate(data.data));
-        }catch{}
+        } catch { }
     }
 }
 
-document.getElementById("connectBtn").onclick=connect;
-document.getElementById("addFriend").onclick=()=>{
-    let f=document.getElementById("friendName").value.trim();
-    if(!f) return;
-    if(!state.contacts.includes(f))
+document.getElementById("connectBtn").onclick = connect;
+document.getElementById("addFriend").onclick = () => {
+    let f = document.getElementById("friendName").value.trim();
+    if (!f) return;
+    if (!state.contacts.includes(f))
         state.contacts.push(f);
-    document.getElementById("friendName").value="";
-    save(); renderContacts();
+    document.getElementById("friendName").value = "";
+    save();
+    renderContacts();
 };
-document.getElementById("sendBtn").onclick=()=>{
-    if(!active) return;
-    let text=document.getElementById("messageInput").value;
-    let msg={type:"message",from:myName,to:active,text};
-    if(!state.conversations[active])
-        state.conversations[active]=[];
+document.getElementById("sendBtn").onclick = () => {
+    if (!active) return;
+    let text = document.getElementById("messageInput").value;
+    if (!text) return;
+    let msg = { type: "message", from: myName, to: active, text };
+    if (!state.conversations[active])
+        state.conversations[active] = [];
     state.conversations[active].push(msg);
+    
+    // Обновляем активность и сбрасываем непрочитанные (отправка сообщения = чат прочитан)
+    state.lastActivity[active] = Date.now();
+    if (state.unread[active]) state.unread[active] = 0;
+    
     socket.send(JSON.stringify(msg));
-    document.getElementById("messageInput").value="";
-    save(); renderMessages();
+    document.getElementById("messageInput").value = "";
+    save();
+    renderMessages();
+    renderContacts(); // обновить порядок и бейджи
 };
-document.getElementById("callBtn").onclick=startCall;
-document.getElementById("endCall").onclick=()=>{
-    if(peer) peer.close();
-    callBox.style.display="none";
+document.getElementById("callBtn").onclick = startCall;
+document.getElementById("endCall").onclick = () => {
+    if (peer) peer.close();
+    callBox.style.display = "none";
 };
 
 renderContacts();
