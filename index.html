@@ -33,6 +33,25 @@ button:disabled{opacity:0.5;cursor:not-allowed}
 .context-menu{position:absolute;background:white;border:1px solid #ccc;border-radius:4px;padding:4px 0;box-shadow:2px 2px 5px rgba(0,0,0,0.2);z-index:1000;display:none}
 .context-menu div{padding:8px 16px;cursor:pointer}
 .context-menu div:hover{background:#f0f0f0}
+.notification{
+    position:fixed;
+    bottom:20px;
+    right:20px;
+    background:#333;
+    color:white;
+    padding:12px 20px;
+    border-radius:8px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+    z-index:2000;
+    opacity:0;
+    transform:translateY(20px);
+    transition:opacity 0.3s, transform 0.3s;
+    max-width:300px;
+}
+.notification.show{opacity:1;transform:translateY(0)}
+.notification.success{background:#10b981}
+.notification.error{background:#ef4444}
+.notification.info{background:#3b82f6}
 </style>
 </head>
 
@@ -81,6 +100,9 @@ button:disabled{opacity:0.5;cursor:not-allowed}
   <div data-action="delete">Удалить чат</div>
 </div>
 
+<!-- Уведомления -->
+<div id="notification" class="notification"></div>
+
 <script>
 let socket;
 let myName = "";
@@ -123,6 +145,17 @@ const connectBtn = document.getElementById("connectBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const myNameInput = document.getElementById("myName");
 const myPasswordInput = document.getElementById("myPassword");
+
+// Функция показа уведомлений
+function showNotification(message, type = 'info') {
+    const notif = document.getElementById('notification');
+    notif.textContent = message;
+    notif.className = `notification ${type}`;
+    notif.classList.add('show');
+    setTimeout(() => {
+        notif.classList.remove('show');
+    }, 3000);
+}
 
 // Блокировка/разблокировка интерфейса
 function setInterfaceEnabled(enabled) {
@@ -175,9 +208,7 @@ function renderContacts() {
         div.addEventListener("contextmenu", (e) => {
             e.preventDefault();
             if (!authenticated) return;
-            // Сохраняем контакт, над которым вызвано меню
             contextMenu.setAttribute("data-contact", name);
-            // Позиционируем меню
             contextMenu.style.left = e.pageX + "px";
             contextMenu.style.top = e.pageY + "px";
             contextMenu.style.display = "block";
@@ -217,22 +248,28 @@ function connect() {
         let data = JSON.parse(e.data);
 
         if (data.type === "error") {
-            alert("Ошибка: " + data.message);
+            showNotification(data.message, 'error');
             socket.close();
             return;
         }
 
         if (data.type === "auth_success") {
-            // Успешная аутентификация
             authenticated = true;
             myName = name;
-            // Загружаем состояние для этого пользователя
             state = loadStateForUser(myName);
-            // Переключаем кнопки
+
+            const isNewUser = Object.keys(state.conversations).length === 0 && state.contacts.length === 0;
+
             connectBtn.style.display = "none";
             logoutBtn.style.display = "inline-block";
             setInterfaceEnabled(true);
-            // Рендерим контакты и сообщения
+
+            if (isNewUser) {
+                showNotification(`Новый пользователь зарегистрирован. Добро пожаловать, ${myName}!`, 'success');
+            } else {
+                showNotification(`С возвращением, ${myName}!`, 'success');
+            }
+
             renderContacts();
             renderMessages();
             return;
@@ -259,7 +296,7 @@ function connect() {
                 state.unread[data.from] = (state.unread[data.from] || 0) + 1;
             }
 
-            msgSound.play();
+            msgSound.play().catch(() => {}); // игнорируем ошибки воспроизведения
             saveStateForUser(myName, state);
             renderContacts();
             renderMessages();
@@ -272,9 +309,9 @@ function connect() {
     };
 
     socket.onclose = () => {
-        // Если соединение закрылось, но мы ещё авторизованы – помечаем как offline?
         if (authenticated) {
-            // Можно показать уведомление
+            showNotification('Соединение с сервером потеряно', 'error');
+            // Можно автоматически выйти, но оставим на усмотрение пользователя
         }
     };
 }
@@ -293,7 +330,6 @@ function logout() {
     renderContacts();
     renderMessages();
     chatHeader.textContent = "Чат не выбран";
-    // Очищаем поля ввода
     myNameInput.value = "";
     myPasswordInput.value = "";
 }
@@ -306,17 +342,15 @@ document.querySelectorAll("[data-action]").forEach(item => {
         if (!contact) return;
 
         if (action === "clear") {
-            // Очистить чат
             if (state.conversations[contact]) {
                 state.conversations[contact] = [];
             }
             state.unread[contact] = 0;
-            // Оставляем lastActivity, чтобы не терять позицию
             saveStateForUser(myName, state);
             if (active === contact) renderMessages();
             renderContacts();
+            showNotification(`Чат с ${contact} очищен`, 'info');
         } else if (action === "delete") {
-            // Удалить чат
             const idx = state.contacts.indexOf(contact);
             if (idx !== -1) state.contacts.splice(idx, 1);
             delete state.conversations[contact];
@@ -329,6 +363,7 @@ document.querySelectorAll("[data-action]").forEach(item => {
                 renderMessages();
             }
             renderContacts();
+            showNotification(`Чат с ${contact} удалён`, 'info');
         }
         contextMenu.style.display = "none";
     });
@@ -339,18 +374,85 @@ document.addEventListener("click", () => {
     contextMenu.style.display = "none";
 });
 
-// Запуск звонка (аналогично)
+// Звонки (WebRTC)
 async function startCall() {
     if (!authenticated || !active) return;
-    // ... (код звонка без изменений)
+    peer = createPeer();
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStream.getTracks().forEach(t => peer.addTrack(t, localStream));
+
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+
+        socket.send(JSON.stringify({
+            type: "signal",
+            from: myName,
+            to: active,
+            data: offer
+        }));
+    } catch (err) {
+        showNotification('Не удалось получить доступ к микрофону', 'error');
+    }
 }
 
 function createPeer() {
-    // ... (без изменений)
+    const pc = new RTCPeerConnection();
+
+    pc.onicecandidate = e => {
+        if (e.candidate) {
+            socket.send(JSON.stringify({
+                type: "signal",
+                from: myName,
+                to: active,
+                data: e.candidate
+            }));
+        }
+    };
+
+    pc.ontrack = e => {
+        const audio = new Audio();
+        audio.srcObject = e.streams[0];
+        audio.play();
+    };
+
+    return pc;
 }
 
 async function handleSignal(data) {
-    // ... (без изменений)
+    if (!peer) peer = createPeer();
+
+    if (data.data.type === "offer") {
+        active = data.from;
+        chatHeader.textContent = "Чат с " + active;
+
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            localStream.getTracks().forEach(t => peer.addTrack(t, localStream));
+
+            await peer.setRemoteDescription(new RTCSessionDescription(data.data));
+            const answer = await peer.createAnswer();
+            await peer.setLocalDescription(answer);
+
+            socket.send(JSON.stringify({
+                type: "signal",
+                from: myName,
+                to: data.from,
+                data: answer
+            }));
+
+            callBox.style.display = "block";
+        } catch (err) {
+            showNotification('Ошибка доступа к микрофону', 'error');
+        }
+    } else if (data.data.type === "answer") {
+        await peer.setRemoteDescription(new RTCSessionDescription(data.data));
+        callBox.style.display = "block";
+    } else {
+        try {
+            await peer.addIceCandidate(new RTCIceCandidate(data.data));
+        } catch { }
+    }
 }
 
 // Привязка обработчиков
