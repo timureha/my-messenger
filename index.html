@@ -86,6 +86,23 @@ button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
 #attachBtn:hover,#voiceBtn:hover{background:#e2e8f0}
 #voiceBtn.recording{background:#fee2e2;color:#dc2626}
 #fileInput{display:none}
+
+/* contact row layout */
+.contact{position:relative}
+.contact-left{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.contact-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.contact-typing{font-size:11px;color:#2563eb;font-style:italic;height:14px}
+.contact-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.unread-badge{
+    background:#dc2626;color:#fff;border-radius:999px;
+    font-size:11px;font-weight:bold;
+    min-width:18px;height:18px;
+    display:flex;align-items:center;justify-content:center;
+    padding:0 4px;
+}
+
+/* typing indicator in chat header */
+#typingIndicator{font-size:12px;color:#2563eb;font-style:italic;font-weight:normal;margin-left:8px;}
 </style>
 </head>
 
@@ -116,7 +133,7 @@ button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
 </div>
 
 <div class="panel">
-<div class="top" id="chatHeader">Чат не выбран</div>
+<div class="top" id="chatHeader">Чат не выбран<span id="typingIndicator"></span></div>
 <div class="messages" id="messages"></div>
 
 <div class="composer">
@@ -159,7 +176,9 @@ button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
 let socket;
 let myName = "";
 let authMode = "login";
-let state = JSON.parse(localStorage.getItem("messenger_state") || '{"contacts":[],"conversations":{},"online":{}}');
+let state = JSON.parse(localStorage.getItem("messenger_state") || '{"contacts":[],"conversations":{},"online":{},"unread":{},"lastMsg":{}}');
+if (!state.unread) state.unread = {};
+if (!state.lastMsg) state.lastMsg = {};
 let active = null;
 
 let peer;
@@ -186,9 +205,16 @@ const fileInput = document.getElementById("fileInput");
 const callSound = document.getElementById("callSound");
 const incomingCall = document.getElementById("incomingCall");
 const incomingCaller = document.getElementById("incomingCaller");
+const typingIndicator = document.getElementById("typingIndicator");
 
 // pending incoming offer — stored until user accepts/rejects
 let pendingOffer = null;
+
+// typing: { [nick]: timeoutId }
+const typingTimers = {};
+// my typing debounce
+let myTypingTimer = null;
+let myTypingActive = false;
 
 function save() { localStorage.setItem("messenger_state", JSON.stringify(state)); }
 
@@ -258,18 +284,51 @@ function b64toBlob(b64, type) {
 
 function renderContacts() {
     contactsEl.innerHTML = "";
-    state.contacts.forEach(name => {
-        let d = document.createElement("div");
+    const sorted = [...state.contacts].sort((a, b) => (state.lastMsg[b] || 0) - (state.lastMsg[a] || 0));
+    sorted.forEach(name => {
+        const d = document.createElement("div");
         d.className = "contact";
-        d.innerHTML = `
-            <span>${name}</span>
-            <span class="${state.online[name] ? "online" : "offline"}">
-                ${state.online[name] ? "● online" : "● offline"}
-            </span>
-        `;
+
+        const left = document.createElement("div");
+        left.className = "contact-left";
+
+        const nameEl = document.createElement("div");
+        nameEl.className = "contact-name";
+        nameEl.textContent = name;
+
+        const typingEl = document.createElement("div");
+        typingEl.className = "contact-typing";
+        typingEl.textContent = typingTimers[name] ? "печатает..." : "";
+
+        left.appendChild(nameEl);
+        left.appendChild(typingEl);
+
+        const right = document.createElement("div");
+        right.className = "contact-right";
+
+        const statusEl = document.createElement("span");
+        statusEl.className = state.online[name] ? "online" : "offline";
+        statusEl.textContent = state.online[name] ? "● online" : "● offline";
+        right.appendChild(statusEl);
+
+        const unread = state.unread[name] || 0;
+        if (unread > 0) {
+            const badge = document.createElement("div");
+            badge.className = "unread-badge";
+            badge.textContent = unread > 99 ? "99+" : unread;
+            right.appendChild(badge);
+        }
+
+        d.appendChild(left);
+        d.appendChild(right);
+
         d.onclick = () => {
             active = name;
-            chatHeader.textContent = "Чат с " + name;
+            state.unread[name] = 0;
+            save();
+            chatHeader.firstChild.textContent = "Чат с " + name;
+            typingIndicator.textContent = "";
+            renderContacts();
             renderMessages();
         };
         d.oncontextmenu = e => {
@@ -298,9 +357,11 @@ function appendMessage(m) {
 function sendMsg(msg) {
     if (!state.conversations[msg.to]) state.conversations[msg.to] = [];
     state.conversations[msg.to].push(msg);
+    state.lastMsg[msg.to] = msg.ts || Date.now();
     socket.send(JSON.stringify(msg));
     save();
     appendMessage(msg);
+    renderContacts();
 }
 
 function mainMessageHandler(e) {
@@ -318,11 +379,37 @@ function mainMessageHandler(e) {
         save(); renderContacts();
     }
 
+    if (data.type === "typing") {
+        const from = data.from;
+        // show in contact list
+        if (typingTimers[from]) clearTimeout(typingTimers[from]);
+        typingTimers[from] = setTimeout(() => {
+            delete typingTimers[from];
+            renderContacts();
+            if (active === from) typingIndicator.textContent = "";
+        }, 3000);
+        renderContacts();
+        // show in chat header
+        if (active === from) typingIndicator.textContent = " печатает...";
+        return;
+    }
+
     if (data.type === "message") {
         const from = data.from;
+        // clear typing when message arrives
+        if (typingTimers[from]) {
+            clearTimeout(typingTimers[from]);
+            delete typingTimers[from];
+        }
+        if (active === from) typingIndicator.textContent = "";
+
         if (!state.conversations[from]) state.conversations[from] = [];
         state.conversations[from].push(data);
         if (!state.contacts.includes(from)) state.contacts.push(from);
+        state.lastMsg[from] = data.ts || Date.now();
+        if (active !== from) {
+            state.unread[from] = (state.unread[from] || 0) + 1;
+        }
         msgSound.play();
         save(); renderContacts();
         appendMessage(data);
@@ -414,7 +501,16 @@ document.getElementById("messageInput").addEventListener("keydown", e => {
     if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         document.getElementById("sendBtn").click();
+        return;
     }
+    // typing indicator
+    if (!active || !socket) return;
+    if (!myTypingActive) {
+        myTypingActive = true;
+        socket.send(JSON.stringify({ type: "typing", from: myName, to: active }));
+    }
+    clearTimeout(myTypingTimer);
+    myTypingTimer = setTimeout(() => { myTypingActive = false; }, 2500);
 });
 
 // --- Attach file ---
@@ -538,7 +634,8 @@ document.getElementById("ctxDelete").onclick = () => {
     delete state.conversations[ctxTarget];
     if (active === ctxTarget) {
         active = null;
-        chatHeader.textContent = "Чат не выбран";
+        chatHeader.firstChild.textContent = "Чат не выбран";
+        typingIndicator.textContent = "";
         renderMessages();
     }
     save(); renderContacts();
@@ -634,7 +731,8 @@ document.getElementById("acceptCall").onclick = async () => {
     stopCallSound();
 
     active = data.from;
-    chatHeader.textContent = "Чат с " + active;
+    chatHeader.firstChild.textContent = "Чат с " + active;
+    typingIndicator.textContent = "";
 
     peer = createPeer(data.from);
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
