@@ -407,6 +407,18 @@ let myTypingTimer = null, myTypingActive = false;
 
 function save() { localStorage.setItem("messenger_state", JSON.stringify(state)); }
 
+// Системное сообщение в области чата
+function showSystemMsg(text) {
+    const el = document.createElement("div");
+    el.style.cssText = "text-align:center;font-size:12px;color:var(--text2);padding:6px 12px;";
+    el.textContent = text;
+    messagesEl.appendChild(el);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// Очередь колбэков ожидающих ответа nickResult: { [nick]: [fn, ...] }
+const nickCallbacks = {};
+
 // ── Сессия — автовход ─────────────────────────────────────────────────────
 const savedSession = JSON.parse(localStorage.getItem("session") || "null");
 if (savedSession) {
@@ -594,6 +606,15 @@ function mainMessageHandler(e) {
         return;
     }
 
+    if (data.type === "nickResult") {
+        const cbs = nickCallbacks[data.nick];
+        if (cbs) {
+            delete nickCallbacks[data.nick];
+            cbs.forEach(fn => fn(data.exists));
+        }
+        return;
+    }
+
     if (data.type === "typing") {
         const from = data.from;
         if (typingTimers[from]) clearTimeout(typingTimers[from]);
@@ -619,6 +640,20 @@ function mainMessageHandler(e) {
         msgSound.play().catch(() => {});
         save(); renderContacts();
         appendMessage(data);
+        return;
+    }
+
+    if (data.type === "deliveryError") {
+        if (data.error === "no_user") {
+            showSystemMsg("Пользователь «" + data.to + "» не существует. Сообщение не доставлено.");
+            // откатить последнее сообщение из локальной истории
+            const conv = state.conversations[data.to];
+            if (conv && conv.length) {
+                const last = conv[conv.length - 1];
+                if (last.from === myName) conv.pop();
+            }
+            save(); renderMessages();
+        }
         return;
     }
 
@@ -809,17 +844,48 @@ document.getElementById("ctxDelete").onclick = () => {
     hideCtxMenu();
 };
 
+// ── Проверить ник на сервере, затем вызвать колбэк(exists) ───────────────
+function checkNick(nick, cb) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) { cb(false); return; }
+    if (!nickCallbacks[nick]) nickCallbacks[nick] = [];
+    nickCallbacks[nick].push(cb);
+    socket.send(JSON.stringify({ type: "checkNick", nick }));
+}
+
 // ── Добавить контакт ──────────────────────────────────────────────────────
-document.getElementById("addFriend").onclick = () => {
-    const f = document.getElementById("friendName").value.trim();
+const friendInput = document.getElementById("friendName");
+const addFriendBtn = document.getElementById("addFriend");
+const friendError = document.createElement("div");
+friendError.style.cssText = "font-size:12px;color:#dc2626;padding:0 12px 6px;display:none;";
+friendInput.parentElement.insertAdjacentElement("afterend", friendError);
+
+function doAddFriend() {
+    const f = friendInput.value.trim();
     if (!f) return;
-    if (!state.contacts.includes(f)) state.contacts.push(f);
-    document.getElementById("friendName").value = "";
-    save(); renderContacts();
-};
-document.getElementById("friendName").addEventListener("keydown", e => {
-    if (e.key === "Enter") document.getElementById("addFriend").click();
-});
+    if (f === myName) { friendError.textContent = "Это вы сами"; friendError.style.display = "block"; return; }
+    if (state.contacts.includes(f)) {
+        friendError.textContent = "Уже в списке";
+        friendError.style.display = "block";
+        return;
+    }
+    friendError.style.display = "none";
+    addFriendBtn.disabled = true;
+    checkNick(f, exists => {
+        addFriendBtn.disabled = false;
+        if (!exists) {
+            friendError.textContent = "Пользователь «" + f + "» не существует";
+            friendError.style.display = "block";
+            return;
+        }
+        friendInput.value = "";
+        friendError.style.display = "none";
+        state.contacts.push(f);
+        save(); renderContacts();
+    });
+}
+
+addFriendBtn.onclick = doAddFriend;
+friendInput.addEventListener("keydown", e => { if (e.key === "Enter") doAddFriend(); });
 
 // ── Звонки ────────────────────────────────────────────────────────────────
 function stopCallSound() { callSound.pause(); callSound.currentTime = 0; }
