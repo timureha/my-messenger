@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Messenger PRO</title>
+
+<style>
+:root{--accent:#2563eb;--bg:#f3f4f6}
+*{box-sizing:border-box;font-family:Arial}
+body{margin:0;background:var(--bg);height:100vh;display:flex}
+.app{display:grid;grid-template-columns:280px 1fr;width:100%;padding:10px;gap:10px}
+.panel{background:#fff;border-radius:10px;box-shadow:0 8px 25px rgba(0,0,0,.08);display:flex;flex-direction:column}
+.top{padding:12px;border-bottom:1px solid #eee;font-weight:bold}
+.contacts{flex:1;overflow:auto}
+.contact{padding:10px;border-bottom:1px solid #eee;cursor:pointer;display:flex;justify-content:space-between}
+.online{color:green;font-size:12px}
+.offline{color:red;font-size:12px}
+.messages{flex:1;padding:15px;overflow:auto}
+.message{margin-bottom:10px;max-width:70%;padding:8px;border-radius:8px}
+.me{background:#dbeafe;margin-left:auto}
+.them{background:#f1f5f9}
+.composer{display:flex;padding:10px;border-top:1px solid #eee;gap:6px}
+input{padding:8px;border-radius:6px;border:1px solid #ddd}
+button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
+.primary{background:var(--accent);color:#fff}
+.callBox{position:fixed;bottom:20px;right:20px;background:#fff;padding:15px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);display:none}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<div class="panel">
+<div class="top">
+<input id="myName" placeholder="Ваш ник">
+<button id="connectBtn">Войти</button>
+</div>
+
+<div style="padding:10px;border-bottom:1px solid #eee;display:flex;gap:5px">
+<input id="friendName" placeholder="Ник друга" style="flex:1">
+<button id="addFriend">+</button>
+</div>
+
+<div class="contacts" id="contacts"></div>
+</div>
+
+<div class="panel">
+<div class="top" id="chatHeader">Чат не выбран</div>
+<div class="messages" id="messages"></div>
+
+<div class="composer">
+<input id="messageInput" style="flex:1" placeholder="Сообщение">
+<button class="primary" id="sendBtn">Отправить</button>
+<button id="callBtn">📞</button>
+</div>
+</div>
+
+</div>
+
+<div class="callBox" id="callBox">
+<div id="callStatus">Звонок...</div>
+<button id="endCall">Завершить</button>
+</div>
+
+<audio id="msgSound" src="message.mp3" preload="auto"></audio>
+
+<script>
+let socket;
+let myName="";
+let state = JSON.parse(localStorage.getItem("messenger_state") || '{"contacts":[],"conversations":{},"online":{}}');
+let active=null;
+
+let peer;
+let localStream;
+
+const contactsEl=document.getElementById("contacts");
+const messagesEl=document.getElementById("messages");
+const chatHeader=document.getElementById("chatHeader");
+const msgSound=document.getElementById("msgSound");
+const callBox=document.getElementById("callBox");
+
+function save(){ localStorage.setItem("messenger_state", JSON.stringify(state)); }
+
+function renderContacts(){
+    contactsEl.innerHTML="";
+    state.contacts.forEach(name=>{
+        let d=document.createElement("div");
+        d.className="contact";
+        d.innerHTML=`
+            <span>${name}</span>
+            <span class="${state.online[name]?"online":"offline"}">
+                ${state.online[name]?"● online":"● offline"}
+            </span>
+        `;
+        d.onclick=()=>{
+            active=name;
+            chatHeader.textContent="Чат с "+name;
+            renderMessages();
+        };
+        contactsEl.appendChild(d);
+    });
+}
+
+function renderMessages(){
+    messagesEl.innerHTML="";
+    if(!active) return;
+
+    let conv=state.conversations[active]||[];
+    conv.forEach(m=>{
+        let d=document.createElement("div");
+        d.className="message "+(m.from===myName?"me":"them");
+        d.textContent=m.text;
+        messagesEl.appendChild(d);
+    });
+}
+
+function connect(){
+    myName=document.getElementById("myName").value.trim();
+    if(!myName) return alert("Введите ник");
+
+    socket=new WebSocket("ws://localhost:3000");
+
+    socket.onopen=()=>{
+        socket.send(JSON.stringify({type:"auth",name:myName}));
+    };
+
+    socket.onmessage=async e=>{
+        let data=JSON.parse(e.data);
+
+        if(data.type==="onlineList"){
+            state.online=data.users;
+            save(); renderContacts();
+        }
+
+        if(data.type==="message"){
+            if(!state.conversations[data.from])
+                state.conversations[data.from]=[];
+            state.conversations[data.from].push(data);
+            if(!state.contacts.includes(data.from))
+                state.contacts.push(data.from);
+            msgSound.play();
+            save(); renderContacts(); renderMessages();
+        }
+
+        if(data.type==="signal"){
+            await handleSignal(data);
+        }
+    };
+}
+
+async function startCall(){
+    if(!active) return;
+
+    peer=createPeer();
+    localStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    localStream.getTracks().forEach(t=>peer.addTrack(t,localStream));
+
+    const offer=await peer.createOffer();
+    await peer.setLocalDescription(offer);
+
+    socket.send(JSON.stringify({
+        type:"signal",
+        from:myName,
+        to:active,
+        data:offer
+    }));
+}
+
+function createPeer(){
+    const pc=new RTCPeerConnection();
+
+    pc.onicecandidate=e=>{
+        if(e.candidate){
+            socket.send(JSON.stringify({
+                type:"signal",
+                from:myName,
+                to:active,
+                data:e.candidate
+            }));
+        }
+    };
+
+    pc.ontrack=e=>{
+        const audio=new Audio();
+        audio.srcObject=e.streams[0];
+        audio.play();
+    };
+
+    return pc;
+}
+
+async function handleSignal(data){
+    if(!peer) peer=createPeer();
+
+    if(data.data.type==="offer"){
+        active=data.from;
+        chatHeader.textContent="Чат с "+active;
+
+        localStream=await navigator.mediaDevices.getUserMedia({audio:true});
+        localStream.getTracks().forEach(t=>peer.addTrack(t,localStream));
+
+        await peer.setRemoteDescription(new RTCSessionDescription(data.data));
+        const answer=await peer.createAnswer();
+        await peer.setLocalDescription(answer);
+
+        socket.send(JSON.stringify({
+            type:"signal",
+            from:myName,
+            to:data.from,
+            data:answer
+        }));
+
+        callBox.style.display="block";
+    }
+
+    else if(data.data.type==="answer"){
+        await peer.setRemoteDescription(new RTCSessionDescription(data.data));
+        callBox.style.display="block";
+    }
+
+    else{
+        try{
+            await peer.addIceCandidate(new RTCIceCandidate(data.data));
+        }catch{}
+    }
+}
+
+document.getElementById("connectBtn").onclick=connect;
+document.getElementById("addFriend").onclick=()=>{
+    let f=document.getElementById("friendName").value.trim();
+    if(!f) return;
+    if(!state.contacts.includes(f))
+        state.contacts.push(f);
+    document.getElementById("friendName").value="";
+    save(); renderContacts();
+};
+document.getElementById("sendBtn").onclick=()=>{
+    if(!active) return;
+    let text=document.getElementById("messageInput").value;
+    let msg={type:"message",from:myName,to:active,text};
+    if(!state.conversations[active])
+        state.conversations[active]=[];
+    state.conversations[active].push(msg);
+    socket.send(JSON.stringify(msg));
+    document.getElementById("messageInput").value="";
+    save(); renderMessages();
+};
+document.getElementById("callBtn").onclick=startCall;
+document.getElementById("endCall").onclick=()=>{
+    if(peer) peer.close();
+    callBox.style.display="none";
+};
+
+renderContacts();
+</script>
+
+</body>
+</html>
