@@ -17,25 +17,78 @@ body{margin:0;background:var(--bg);height:100vh;display:flex}
 .online{color:green;font-size:12px}
 .offline{color:red;font-size:12px}
 .messages{flex:1;padding:15px;overflow:auto}
-.message{margin-bottom:10px;max-width:70%;padding:8px;border-radius:8px}
-.me{background:#dbeafe;margin-left:auto}
-.them{background:#f1f5f9}
-.composer{display:flex;padding:10px;border-top:1px solid #eee;gap:6px}
+.message{margin-bottom:6px;max-width:70%;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;gap:4px}
+.me{background:#dbeafe;margin-left:auto;align-items:flex-end}
+.them{background:#f1f5f9;align-items:flex-start}
+.msg-time{font-size:10px;color:#94a3b8;white-space:nowrap}
+.msg-media img,.msg-media video{max-width:260px;max-height:200px;border-radius:6px;display:block}
+.msg-media audio{width:220px}
+.composer{display:flex;padding:10px;border-top:1px solid #eee;gap:6px;align-items:center}
 input{padding:8px;border-radius:6px;border:1px solid #ddd}
 button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
 .primary{background:var(--accent);color:#fff}
 .callBox{position:fixed;bottom:20px;right:20px;background:#fff;padding:15px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);display:none}
+
+#authOverlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.45);
+    display:flex;align-items:center;justify-content:center;
+    z-index:1000;
+}
+#authBox{
+    background:#fff;border-radius:12px;padding:32px 28px;
+    box-shadow:0 12px 40px rgba(0,0,0,.25);width:320px;
+    display:flex;flex-direction:column;gap:12px;
+}
+#authBox h2{margin:0;font-size:1.3rem;color:#111}
+#authBox input{width:100%}
+#authBox button.primary{width:100%;padding:10px}
+#authError{color:#dc2626;font-size:13px;min-height:18px}
+#authSwitch{font-size:13px;text-align:center;color:#555}
+#authSwitch a{color:var(--accent);cursor:pointer;text-decoration:underline}
+
+#myNickLabel{display:flex;justify-content:space-between;align-items:center}
+#logoutBtn{font-size:12px;padding:4px 8px;background:#fee2e2;color:#dc2626;border-radius:5px;cursor:pointer;border:none}
+#logoutBtn:hover{background:#fecaca}
+
+#ctxMenu{
+    position:fixed;background:#fff;border-radius:8px;
+    box-shadow:0 4px 20px rgba(0,0,0,.15);
+    padding:4px 0;z-index:500;display:none;min-width:160px;
+}
+#ctxMenu button{
+    display:block;width:100%;text-align:left;
+    padding:8px 14px;background:none;border:none;
+    font-size:13px;cursor:pointer;border-radius:0;
+}
+#ctxMenu button:hover{background:#f3f4f6}
+#ctxMenu button.danger{color:#dc2626}
+#ctxMenu button.danger:hover{background:#fee2e2}
+
+/* media / voice buttons */
+#attachBtn,#voiceBtn{font-size:16px;padding:6px 8px;background:#f1f5f9}
+#attachBtn:hover,#voiceBtn:hover{background:#e2e8f0}
+#voiceBtn.recording{background:#fee2e2;color:#dc2626}
+#fileInput{display:none}
 </style>
 </head>
 
 <body>
-<div class="app">
+
+<div id="authOverlay">
+  <div id="authBox">
+    <h2 id="authTitle">Вход</h2>
+    <input id="authNick" placeholder="Ник" autocomplete="username">
+    <input id="authPassword" type="password" placeholder="Пароль" autocomplete="current-password">
+    <div id="authError"></div>
+    <button class="primary" id="authSubmit">Войти</button>
+    <div id="authSwitch">Нет аккаунта? <a id="authToggle">Зарегистрироваться</a></div>
+  </div>
+</div>
+
+<div class="app" id="appDiv" style="display:none">
 
 <div class="panel">
-<div class="top">
-<input id="myName" placeholder="Ваш ник">
-<button id="connectBtn">Войти</button>
-</div>
+<div class="top" id="myNickLabel">Вы: — <button id="logoutBtn">Выйти</button></div>
 
 <div style="padding:10px;border-bottom:1px solid #eee;display:flex;gap:5px">
 <input id="friendName" placeholder="Ник друга" style="flex:1">
@@ -51,6 +104,9 @@ button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
 
 <div class="composer">
 <input id="messageInput" style="flex:1" placeholder="Сообщение">
+<button id="attachBtn" title="Прикрепить файл">📎</button>
+<input type="file" id="fileInput" accept="image/*,video/*,audio/*">
+<button id="voiceBtn" title="Голосовое сообщение">🎤</button>
 <button class="primary" id="sendBtn">Отправить</button>
 <button id="callBtn">📞</button>
 </div>
@@ -63,193 +119,456 @@ button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
 <button id="endCall">Завершить</button>
 </div>
 
+<div id="ctxMenu">
+  <button id="ctxClear">Очистить чат</button>
+  <button id="ctxDelete" class="danger">Удалить контакт</button>
+</div>
+
 <audio id="msgSound" src="message.mp3" preload="auto"></audio>
 
 <script>
 let socket;
-let myName="";
+let myName = "";
+let authMode = "login";
 let state = JSON.parse(localStorage.getItem("messenger_state") || '{"contacts":[],"conversations":{},"online":{}}');
-let active=null;
+let active = null;
 
 let peer;
 let localStream;
 
-const contactsEl=document.getElementById("contacts");
-const messagesEl=document.getElementById("messages");
-const chatHeader=document.getElementById("chatHeader");
-const msgSound=document.getElementById("msgSound");
-const callBox=document.getElementById("callBox");
+// voice recording
+let mediaRecorder = null;
+let voiceChunks = [];
 
-function save(){ localStorage.setItem("messenger_state", JSON.stringify(state)); }
+const contactsEl = document.getElementById("contacts");
+const messagesEl = document.getElementById("messages");
+const chatHeader = document.getElementById("chatHeader");
+const msgSound = document.getElementById("msgSound");
+const callBox = document.getElementById("callBox");
+const authOverlay = document.getElementById("authOverlay");
+const appDiv = document.getElementById("appDiv");
+const authError = document.getElementById("authError");
+const authTitle = document.getElementById("authTitle");
+const authSubmit = document.getElementById("authSubmit");
+const authToggle = document.getElementById("authToggle");
+const authSwitch = document.getElementById("authSwitch");
+const voiceBtn = document.getElementById("voiceBtn");
+const fileInput = document.getElementById("fileInput");
 
-function renderContacts(){
-    contactsEl.innerHTML="";
-    state.contacts.forEach(name=>{
-        let d=document.createElement("div");
-        d.className="contact";
-        d.innerHTML=`
+function save() { localStorage.setItem("messenger_state", JSON.stringify(state)); }
+
+function formatTime(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    const now = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    const time = pad(d.getHours()) + ":" + pad(d.getMinutes());
+    if (d.toDateString() === now.toDateString()) return time;
+    return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + " " + time;
+}
+
+function renderMessageEl(m) {
+    const wrap = document.createElement("div");
+    wrap.className = "message " + (m.from === myName ? "me" : "them");
+
+    if (m.mediaType && m.mediaData) {
+        const media = document.createElement("div");
+        media.className = "msg-media";
+        if (m.mediaType.startsWith("image/")) {
+            const img = document.createElement("img");
+            img.src = "data:" + m.mediaType + ";base64," + m.mediaData;
+            img.alt = m.fileName || "image";
+            media.appendChild(img);
+        } else if (m.mediaType.startsWith("video/")) {
+            const vid = document.createElement("video");
+            vid.src = "data:" + m.mediaType + ";base64," + m.mediaData;
+            vid.controls = true;
+            media.appendChild(vid);
+        } else if (m.mediaType.startsWith("audio/")) {
+            const aud = document.createElement("audio");
+            aud.src = "data:" + m.mediaType + ";base64," + m.mediaData;
+            aud.controls = true;
+            media.appendChild(aud);
+        } else {
+            // generic file — download link
+            const a = document.createElement("a");
+            const blob = b64toBlob(m.mediaData, m.mediaType);
+            a.href = URL.createObjectURL(blob);
+            a.download = m.fileName || "file";
+            a.textContent = "📄 " + (m.fileName || "file");
+            a.style.cssText = "color:#2563eb;font-size:13px";
+            media.appendChild(a);
+        }
+        wrap.appendChild(media);
+    } else {
+        const txt = document.createElement("span");
+        txt.textContent = m.text || "";
+        wrap.appendChild(txt);
+    }
+
+    const time = document.createElement("span");
+    time.className = "msg-time";
+    time.textContent = formatTime(m.ts);
+    wrap.appendChild(time);
+
+    return wrap;
+}
+
+function b64toBlob(b64, type) {
+    const bytes = atob(b64);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    return new Blob([arr], { type });
+}
+
+function renderContacts() {
+    contactsEl.innerHTML = "";
+    state.contacts.forEach(name => {
+        let d = document.createElement("div");
+        d.className = "contact";
+        d.innerHTML = `
             <span>${name}</span>
-            <span class="${state.online[name]?"online":"offline"}">
-                ${state.online[name]?"● online":"● offline"}
+            <span class="${state.online[name] ? "online" : "offline"}">
+                ${state.online[name] ? "● online" : "● offline"}
             </span>
         `;
-        d.onclick=()=>{
-            active=name;
-            chatHeader.textContent="Чат с "+name;
+        d.onclick = () => {
+            active = name;
+            chatHeader.textContent = "Чат с " + name;
             renderMessages();
+        };
+        d.oncontextmenu = e => {
+            e.preventDefault();
+            showCtxMenu(e.clientX, e.clientY, name);
         };
         contactsEl.appendChild(d);
     });
 }
 
-function renderMessages(){
-    messagesEl.innerHTML="";
-    if(!active) return;
-
-    let conv=state.conversations[active]||[];
-    conv.forEach(m=>{
-        let d=document.createElement("div");
-        d.className="message "+(m.from===myName?"me":"them");
-        d.textContent=m.text;
-        messagesEl.appendChild(d);
-    });
+function renderMessages() {
+    messagesEl.innerHTML = "";
+    if (!active) return;
+    const conv = state.conversations[active] || [];
+    conv.forEach(m => messagesEl.appendChild(renderMessageEl(m)));
+    messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function connect(){
-    myName=document.getElementById("myName").value.trim();
-    if(!myName) return alert("Введите ник");
+function appendMessage(m) {
+    if (active === (m.from === myName ? m.to : m.from)) {
+        messagesEl.appendChild(renderMessageEl(m));
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+}
 
-    socket=new WebSocket("wss://" + location.host);
+function sendMsg(msg) {
+    if (!state.conversations[msg.to]) state.conversations[msg.to] = [];
+    state.conversations[msg.to].push(msg);
+    socket.send(JSON.stringify(msg));
+    save();
+    appendMessage(msg);
+}
 
-    socket.onopen=()=>{
-        socket.send(JSON.stringify({type:"auth",name:myName}));
+function mainMessageHandler(e) {
+    let data;
+    try { data = JSON.parse(e.data); } catch { return; }
+
+    if (data.type === "kicked") {
+        alert("Вы вошли с другого устройства.");
+        location.reload();
+        return;
+    }
+
+    if (data.type === "onlineList") {
+        state.online = data.users;
+        save(); renderContacts();
+    }
+
+    if (data.type === "message") {
+        const from = data.from;
+        if (!state.conversations[from]) state.conversations[from] = [];
+        state.conversations[from].push(data);
+        if (!state.contacts.includes(from)) state.contacts.push(from);
+        msgSound.play();
+        save(); renderContacts();
+        appendMessage(data);
+    }
+
+    if (data.type === "signal") {
+        handleSignal(data);
+    }
+}
+
+function connectAndAuth() {
+    const nick = document.getElementById("authNick").value.trim();
+    const password = document.getElementById("authPassword").value;
+    authError.textContent = "";
+
+    if (!nick || !password) {
+        authError.textContent = "Заполните все поля";
+        return;
+    }
+
+    authSubmit.disabled = true;
+
+    const wsUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
+    socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+        socket.send(JSON.stringify({ type: authMode, nick, password }));
     };
 
-    socket.onmessage=async e=>{
-        let data=JSON.parse(e.data);
+    socket.onmessage = e => {
+        let data;
+        try { data = JSON.parse(e.data); } catch { return; }
 
-        if(data.type==="onlineList"){
-            state.online=data.users;
-            save(); renderContacts();
+        if (data.type === "authResult") {
+            if (data.success) {
+                myName = data.nick;
+                document.getElementById("myNickLabel").firstChild.textContent = "Вы: " + myName + " ";
+                authOverlay.style.display = "none";
+                appDiv.style.display = "grid";
+                socket.onmessage = mainMessageHandler;
+            } else {
+                authError.textContent = data.error || "Ошибка";
+                authSubmit.disabled = false;
+                socket.close();
+            }
         }
+    };
 
-        if(data.type==="message"){
-            if(!state.conversations[data.from])
-                state.conversations[data.from]=[];
-            state.conversations[data.from].push(data);
-            if(!state.contacts.includes(data.from))
-                state.contacts.push(data.from);
-            msgSound.play();
-            save(); renderContacts(); renderMessages();
-        }
-
-        if(data.type==="signal"){
-            await handleSignal(data);
-        }
+    socket.onerror = () => {
+        authError.textContent = "Ошибка подключения к серверу";
+        authSubmit.disabled = false;
     };
 }
 
-async function startCall(){
-    if(!active) return;
+authSubmit.onclick = connectAndAuth;
+document.getElementById("authNick").addEventListener("keydown", e => {
+    if (e.key === "Enter") connectAndAuth();
+});
+document.getElementById("authPassword").addEventListener("keydown", e => {
+    if (e.key === "Enter") connectAndAuth();
+});
 
-    peer=createPeer();
-    localStream=await navigator.mediaDevices.getUserMedia({audio:true});
-    localStream.getTracks().forEach(t=>peer.addTrack(t,localStream));
+authToggle.onclick = () => {
+    if (authMode === "login") {
+        authMode = "register";
+        authTitle.textContent = "Регистрация";
+        authSubmit.textContent = "Зарегистрироваться";
+        authSwitch.innerHTML = 'Уже есть аккаунт? <a id="authToggle">Войти</a>';
+    } else {
+        authMode = "login";
+        authTitle.textContent = "Вход";
+        authSubmit.textContent = "Войти";
+        authSwitch.innerHTML = 'Нет аккаунта? <a id="authToggle">Зарегистрироваться</a>';
+    }
+    authError.textContent = "";
+    document.getElementById("authToggle").onclick = authToggle.onclick;
+};
 
-    const offer=await peer.createOffer();
+// --- Send text ---
+document.getElementById("sendBtn").onclick = () => {
+    if (!active) return;
+    const text = document.getElementById("messageInput").value.trim();
+    if (!text) return;
+    const msg = { type: "message", from: myName, to: active, text, ts: Date.now() };
+    document.getElementById("messageInput").value = "";
+    sendMsg(msg);
+};
+document.getElementById("messageInput").addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById("sendBtn").click();
+    }
+});
+
+// --- Attach file ---
+document.getElementById("attachBtn").onclick = () => {
+    if (!active) return;
+    fileInput.click();
+};
+fileInput.onchange = () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    fileInput.value = "";
+
+    const MAX = 10 * 1024 * 1024; // 10 MB
+    if (file.size > MAX) {
+        alert("Файл слишком большой (макс. 10 МБ)");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = ev => {
+        const dataUrl = ev.target.result;
+        const base64 = dataUrl.split(",")[1];
+        const msg = {
+            type: "message",
+            from: myName,
+            to: active,
+            text: "",
+            mediaType: file.type,
+            mediaData: base64,
+            fileName: file.name,
+            ts: Date.now()
+        };
+        sendMsg(msg);
+    };
+    reader.readAsDataURL(file);
+};
+
+// --- Voice message ---
+voiceBtn.onclick = async () => {
+    if (!active) return;
+
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        return;
+    }
+
+    let stream;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+        alert("Нет доступа к микрофону");
+        return;
+    }
+
+    voiceChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => voiceChunks.push(e.data);
+    mediaRecorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        voiceBtn.classList.remove("recording");
+        voiceBtn.title = "Голосовое сообщение";
+
+        const blob = new Blob(voiceChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const base64 = ev.target.result.split(",")[1];
+            const msg = {
+                type: "message",
+                from: myName,
+                to: active,
+                text: "",
+                mediaType: blob.type,
+                mediaData: base64,
+                fileName: "voice.webm",
+                ts: Date.now()
+            };
+            sendMsg(msg);
+        };
+        reader.readAsDataURL(blob);
+    };
+
+    mediaRecorder.start();
+    voiceBtn.classList.add("recording");
+    voiceBtn.title = "Остановить запись";
+};
+
+// --- Logout ---
+document.getElementById("logoutBtn").onclick = () => {
+    if (socket) socket.close();
+    location.reload();
+};
+
+// --- Context menu ---
+const ctxMenu = document.getElementById("ctxMenu");
+let ctxTarget = null;
+
+function showCtxMenu(x, y, name) {
+    ctxTarget = name;
+    ctxMenu.style.left = x + "px";
+    ctxMenu.style.top = y + "px";
+    ctxMenu.style.display = "block";
+}
+function hideCtxMenu() {
+    ctxMenu.style.display = "none";
+    ctxTarget = null;
+}
+
+document.addEventListener("click", hideCtxMenu);
+document.addEventListener("keydown", e => { if (e.key === "Escape") hideCtxMenu(); });
+
+document.getElementById("ctxClear").onclick = () => {
+    if (!ctxTarget) return;
+    state.conversations[ctxTarget] = [];
+    save();
+    if (active === ctxTarget) renderMessages();
+    hideCtxMenu();
+};
+document.getElementById("ctxDelete").onclick = () => {
+    if (!ctxTarget) return;
+    state.contacts = state.contacts.filter(c => c !== ctxTarget);
+    delete state.conversations[ctxTarget];
+    if (active === ctxTarget) {
+        active = null;
+        chatHeader.textContent = "Чат не выбран";
+        renderMessages();
+    }
+    save(); renderContacts();
+    hideCtxMenu();
+};
+
+// --- Add friend ---
+document.getElementById("addFriend").onclick = () => {
+    let f = document.getElementById("friendName").value.trim();
+    if (!f) return;
+    if (!state.contacts.includes(f)) state.contacts.push(f);
+    document.getElementById("friendName").value = "";
+    save(); renderContacts();
+};
+
+// --- Call ---
+async function startCall() {
+    if (!active) return;
+    peer = createPeer();
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    localStream.getTracks().forEach(t => peer.addTrack(t, localStream));
+    const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
-
-    socket.send(JSON.stringify({
-        type:"signal",
-        from:myName,
-        to:active,
-        data:offer
-    }));
+    socket.send(JSON.stringify({ type: "signal", from: myName, to: active, data: offer }));
 }
 
-function createPeer(){
-    const pc=new RTCPeerConnection();
-
-    pc.onicecandidate=e=>{
-        if(e.candidate){
-            socket.send(JSON.stringify({
-                type:"signal",
-                from:myName,
-                to:active,
-                data:e.candidate
-            }));
+function createPeer() {
+    const pc = new RTCPeerConnection();
+    pc.onicecandidate = e => {
+        if (e.candidate) {
+            socket.send(JSON.stringify({ type: "signal", from: myName, to: active, data: e.candidate }));
         }
     };
-
-    pc.ontrack=e=>{
-        const audio=new Audio();
-        audio.srcObject=e.streams[0];
+    pc.ontrack = e => {
+        const audio = new Audio();
+        audio.srcObject = e.streams[0];
         audio.play();
     };
-
     return pc;
 }
 
-async function handleSignal(data){
-    if(!peer) peer=createPeer();
-
-    if(data.data.type==="offer"){
-        active=data.from;
-        chatHeader.textContent="Чат с "+active;
-
-        localStream=await navigator.mediaDevices.getUserMedia({audio:true});
-        localStream.getTracks().forEach(t=>peer.addTrack(t,localStream));
-
+async function handleSignal(data) {
+    if (!peer) peer = createPeer();
+    if (data.data.type === "offer") {
+        active = data.from;
+        chatHeader.textContent = "Чат с " + active;
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStream.getTracks().forEach(t => peer.addTrack(t, localStream));
         await peer.setRemoteDescription(new RTCSessionDescription(data.data));
-        const answer=await peer.createAnswer();
+        const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
-
-        socket.send(JSON.stringify({
-            type:"signal",
-            from:myName,
-            to:data.from,
-            data:answer
-        }));
-
-        callBox.style.display="block";
-    }
-
-    else if(data.data.type==="answer"){
+        socket.send(JSON.stringify({ type: "signal", from: myName, to: data.from, data: answer }));
+        callBox.style.display = "block";
+    } else if (data.data.type === "answer") {
         await peer.setRemoteDescription(new RTCSessionDescription(data.data));
-        callBox.style.display="block";
-    }
-
-    else{
-        try{
-            await peer.addIceCandidate(new RTCIceCandidate(data.data));
-        }catch{}
+        callBox.style.display = "block";
+    } else {
+        try { await peer.addIceCandidate(new RTCIceCandidate(data.data)); } catch {}
     }
 }
 
-document.getElementById("connectBtn").onclick=connect;
-document.getElementById("addFriend").onclick=()=>{
-    let f=document.getElementById("friendName").value.trim();
-    if(!f) return;
-    if(!state.contacts.includes(f))
-        state.contacts.push(f);
-    document.getElementById("friendName").value="";
-    save(); renderContacts();
-};
-document.getElementById("sendBtn").onclick=()=>{
-    if(!active) return;
-    let text=document.getElementById("messageInput").value;
-    let msg={type:"message",from:myName,to:active,text};
-    if(!state.conversations[active])
-        state.conversations[active]=[];
-    state.conversations[active].push(msg);
-    socket.send(JSON.stringify(msg));
-    document.getElementById("messageInput").value="";
-    save(); renderMessages();
-};
-document.getElementById("callBtn").onclick=startCall;
-document.getElementById("endCall").onclick=()=>{
-    if(peer) peer.close();
-    callBox.style.display="none";
+document.getElementById("callBtn").onclick = startCall;
+document.getElementById("endCall").onclick = () => {
+    if (peer) peer.close();
+    callBox.style.display = "none";
 };
 
 renderContacts();
