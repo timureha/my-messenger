@@ -20,9 +20,8 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocket.Server({ server });
 
 let clients = {};
-let users = {}; // { username: { passwordHash: '...' } }
+let users = {};
 
-// Загружаем пользователей из файла, если есть
 const usersFile = path.join(__dirname, 'users.json');
 try {
     users = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
@@ -41,7 +40,6 @@ function hashPassword(password) {
 function broadcastOnline() {
     let onlineUsers = {};
     for (let name in clients) onlineUsers[name] = true;
-
     for (let name in clients) {
         clients[name].send(JSON.stringify({
             type: "onlineList",
@@ -58,23 +56,20 @@ wss.on('connection', ws => {
             const name = data.name;
             const password = data.password;
 
-            // Проверяем, существует ли пользователь
             if (users[name]) {
-                // Проверяем пароль
                 if (users[name].passwordHash !== hashPassword(password)) {
                     ws.send(JSON.stringify({ type: "error", message: "Неверный пароль" }));
                     ws.close();
                     return;
                 }
             } else {
-                // Новый пользователь – регистрируем
                 users[name] = { passwordHash: hashPassword(password) };
                 saveUsers();
             }
 
-            // Успешная аутентификация
             ws.name = name;
             clients[name] = ws;
+            ws.send(JSON.stringify({ type: "auth_success" }));
             broadcastOnline();
         }
 
