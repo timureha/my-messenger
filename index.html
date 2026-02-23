@@ -1,161 +1,363 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="light">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Messenger PRO</title>
-
 <style>
-:root{--accent:#2563eb;--bg:#f3f4f6}
-*{box-sizing:border-box;font-family:Arial}
-body{margin:0;background:var(--bg);height:100vh;display:flex}
-.app{display:grid;grid-template-columns:280px 1fr;width:100%;padding:10px;gap:10px}
-.panel{background:#fff;border-radius:10px;box-shadow:0 8px 25px rgba(0,0,0,.08);display:flex;flex-direction:column}
-.top{padding:12px;border-bottom:1px solid #eee;font-weight:bold}
-.contacts{flex:1;overflow:auto}
-.contact{padding:10px;border-bottom:1px solid #eee;cursor:pointer;display:flex;justify-content:space-between}
-.online{color:green;font-size:12px}
-.offline{color:red;font-size:12px}
-.messages{flex:1;padding:15px;overflow:auto}
-.message{margin-bottom:6px;max-width:70%;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;gap:4px}
-.me{background:#dbeafe;margin-left:auto;align-items:flex-end}
-.them{background:#f1f5f9;align-items:flex-start}
-.msg-time{font-size:10px;color:#94a3b8;white-space:nowrap}
-.msg-media img,.msg-media video{max-width:260px;max-height:200px;border-radius:6px;display:block}
-.msg-media audio{width:220px}
-.composer{display:flex;padding:10px;border-top:1px solid #eee;gap:6px;align-items:center}
-input{padding:8px;border-radius:6px;border:1px solid #ddd}
-button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
-.primary{background:var(--accent);color:#fff}
-.callBox{position:fixed;bottom:20px;right:20px;background:#fff;padding:15px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);display:none}
-
-#incomingCall{
-    position:fixed;inset:0;background:rgba(0,0,0,.55);
-    display:none;align-items:center;justify-content:center;z-index:900;
+/* ── Темы ── */
+:root {
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --bg: #f3f4f6;
+    --panel: #ffffff;
+    --border: #e5e7eb;
+    --text: #111827;
+    --text2: #6b7280;
+    --me-bg: #dbeafe;
+    --them-bg: #f1f5f9;
+    --input-bg: #ffffff;
+    --input-border: #d1d5db;
+    --hover: #f9fafb;
+    --shadow: rgba(0,0,0,.08);
+    --topbar-bg: #ffffff;
 }
-#incomingBox{
-    background:#fff;border-radius:16px;padding:28px 32px;
-    box-shadow:0 12px 40px rgba(0,0,0,.25);text-align:center;
-    display:flex;flex-direction:column;gap:14px;min-width:240px;
-}
-#incomingBox .caller{font-size:1.1rem;font-weight:bold;color:#111}
-#incomingBox .sub{font-size:13px;color:#64748b}
-.call-btns{display:flex;gap:10px;justify-content:center}
-#acceptCall{background:#16a34a;color:#fff;padding:10px 22px;font-size:15px}
-#acceptCall:hover{background:#15803d}
-#rejectCall{background:#dc2626;color:#fff;padding:10px 22px;font-size:15px}
-#rejectCall:hover{background:#b91c1c}
-
-#authOverlay{
-    position:fixed;inset:0;background:rgba(0,0,0,.45);
-    display:flex;align-items:center;justify-content:center;
-    z-index:1000;
-}
-#authBox{
-    background:#fff;border-radius:12px;padding:32px 28px;
-    box-shadow:0 12px 40px rgba(0,0,0,.25);width:320px;
-    display:flex;flex-direction:column;gap:12px;
-}
-#authBox h2{margin:0;font-size:1.3rem;color:#111}
-#authBox input{width:100%}
-#authBox button.primary{width:100%;padding:10px}
-#authError{color:#dc2626;font-size:13px;min-height:18px}
-#authSwitch{font-size:13px;text-align:center;color:#555}
-#authSwitch a{color:var(--accent);cursor:pointer;text-decoration:underline}
-
-#myNickLabel{display:flex;justify-content:space-between;align-items:center}
-#logoutBtn{font-size:12px;padding:4px 8px;background:#fee2e2;color:#dc2626;border-radius:5px;cursor:pointer;border:none}
-#logoutBtn:hover{background:#fecaca}
-
-#ctxMenu{
-    position:fixed;background:#fff;border-radius:8px;
-    box-shadow:0 4px 20px rgba(0,0,0,.15);
-    padding:4px 0;z-index:500;display:none;min-width:160px;
-}
-#ctxMenu button{
-    display:block;width:100%;text-align:left;
-    padding:8px 14px;background:none;border:none;
-    font-size:13px;cursor:pointer;border-radius:0;
-}
-#ctxMenu button:hover{background:#f3f4f6}
-#ctxMenu button.danger{color:#dc2626}
-#ctxMenu button.danger:hover{background:#fee2e2}
-
-/* media / voice buttons */
-#attachBtn,#voiceBtn{font-size:16px;padding:6px 8px;background:#f1f5f9}
-#attachBtn:hover,#voiceBtn:hover{background:#e2e8f0}
-#voiceBtn.recording{background:#fee2e2;color:#dc2626}
-#fileInput{display:none}
-
-/* contact row layout */
-.contact{position:relative}
-.contact-left{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
-.contact-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.contact-typing{font-size:11px;color:#2563eb;font-style:italic;height:14px}
-.contact-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
-.unread-badge{
-    background:#dc2626;color:#fff;border-radius:999px;
-    font-size:11px;font-weight:bold;
-    min-width:18px;height:18px;
-    display:flex;align-items:center;justify-content:center;
-    padding:0 4px;
+[data-theme="dark"] {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --border: #334155;
+    --text: #f1f5f9;
+    --text2: #94a3b8;
+    --me-bg: #1e40af;
+    --them-bg: #334155;
+    --input-bg: #1e293b;
+    --input-border: #475569;
+    --hover: #263148;
+    --shadow: rgba(0,0,0,.3);
+    --topbar-bg: #1e293b;
 }
 
-/* typing indicator in chat header */
-#typingIndicator{font-size:12px;color:#2563eb;font-style:italic;font-weight:normal;margin-left:8px;}
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: background .2s, color .2s;
+}
+
+/* ── Layout ── */
+.app {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    flex: 1;
+    min-height: 0;
+    gap: 10px;
+    padding: 10px;
+}
+.panel {
+    background: var(--panel);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px var(--shadow);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    transition: background .2s;
+}
+
+/* ── Top bars ── */
+.top {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    background: var(--topbar-bg);
+    transition: background .2s, border-color .2s;
+}
+.top-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Inputs & Buttons ── */
+input, textarea {
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s, background .2s;
+}
+input:focus { border-color: var(--accent); }
+button {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+    transition: background .15s, opacity .15s;
+}
+button:active { opacity: .8; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-icon {
+    font-size: 18px;
+    padding: 6px 9px;
+    background: transparent;
+    color: var(--text2);
+    border-radius: 8px;
+}
+.btn-icon:hover { background: var(--hover); color: var(--text); }
+.btn-danger { background: #fee2e2; color: #dc2626; }
+.btn-danger:hover { background: #fecaca; }
+
+/* ── Add friend row ── */
+.add-friend-row {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.add-friend-row input { flex: 1; }
+
+/* ── Contacts ── */
+.contacts { flex: 1; overflow-y: auto; }
+.contact {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    transition: background .12s;
+}
+.contact:hover { background: var(--hover); }
+.contact.active-contact { background: var(--me-bg); }
+.contact-left { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.contact-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contact-typing { font-size: 11px; color: var(--accent); font-style: italic; height: 14px; }
+.contact-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.status-online { color: #16a34a; font-size: 11px; }
+.status-offline { color: var(--text2); font-size: 11px; }
+.unread-badge {
+    background: #dc2626; color: #fff; border-radius: 999px;
+    font-size: 11px; font-weight: 700;
+    min-width: 18px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 5px;
+}
+
+/* ── Chat panel ── */
+.messages {
+    flex: 1;
+    padding: 14px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.message {
+    max-width: 72%;
+    padding: 8px 11px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    word-break: break-word;
+}
+.me { background: var(--me-bg); margin-left: auto; align-items: flex-end; border-bottom-right-radius: 3px; }
+.them { background: var(--them-bg); align-items: flex-start; border-bottom-left-radius: 3px; }
+.msg-text { line-height: 1.4; }
+.msg-time { font-size: 10px; color: var(--text2); white-space: nowrap; }
+.msg-media img, .msg-media video { max-width: 260px; max-height: 200px; border-radius: 8px; display: block; }
+.msg-media audio { width: 220px; }
+
+/* ── Composer ── */
+.composer {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid var(--border);
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+}
+.composer input { flex: 1; min-width: 0; }
+#voiceBtn.recording { background: #fee2e2 !important; color: #dc2626 !important; }
+#fileInput { display: none; }
+
+/* ── Typing in header ── */
+#typingIndicator { font-size: 12px; color: var(--accent); font-style: italic; font-weight: normal; }
+
+/* ── Logout / theme btn ── */
+#logoutBtn { font-size: 12px; padding: 4px 9px; }
+#themeBtn { font-size: 16px; padding: 4px 7px; background: transparent; color: var(--text2); border-radius: 6px; }
+#themeBtn:hover { background: var(--hover); }
+.sidebar-actions { display: flex; gap: 4px; align-items: center; }
+
+/* ── callBox ── */
+.callBox {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--panel); color: var(--text);
+    padding: 14px 18px; border-radius: 14px;
+    box-shadow: 0 8px 30px var(--shadow);
+    display: none; flex-direction: column; gap: 8px;
+    z-index: 300;
+}
+#callStatus { font-size: 13px; font-weight: 600; }
+
+/* ── Incoming call overlay ── */
+#incomingCall {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    display: none; align-items: center; justify-content: center; z-index: 900;
+}
+#incomingBox {
+    background: var(--panel); border-radius: 18px; padding: 28px 32px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.3); text-align: center;
+    display: flex; flex-direction: column; gap: 14px; min-width: 240px;
+}
+#incomingBox .caller { font-size: 1.15rem; font-weight: bold; }
+#incomingBox .sub { font-size: 13px; color: var(--text2); }
+.call-btns { display: flex; gap: 10px; justify-content: center; }
+#acceptCall { background: #16a34a; color: #fff; padding: 10px 22px; }
+#acceptCall:hover { background: #15803d; }
+#rejectCall { background: #dc2626; color: #fff; padding: 10px 22px; }
+#rejectCall:hover { background: #b91c1c; }
+
+/* ── Auth overlay ── */
+#authOverlay {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; transition: background .2s;
+}
+#authBox {
+    background: var(--panel); border-radius: 16px; padding: 36px 30px;
+    box-shadow: 0 12px 40px var(--shadow); width: min(340px, 92vw);
+    display: flex; flex-direction: column; gap: 13px;
+}
+#authBox h2 { margin: 0; font-size: 1.4rem; }
+#authBox input { width: 100%; }
+#authBox .btn-primary { width: 100%; padding: 11px; font-size: 15px; }
+#authError { color: #dc2626; font-size: 13px; min-height: 18px; }
+#authSwitch { font-size: 13px; text-align: center; color: var(--text2); }
+#authSwitch a { color: var(--accent); cursor: pointer; text-decoration: underline; }
+.auth-theme-row { display: flex; justify-content: flex-end; }
+
+/* ── Context menu ── */
+#ctxMenu {
+    position: fixed; background: var(--panel); border-radius: 10px;
+    box-shadow: 0 4px 24px var(--shadow);
+    padding: 4px 0; z-index: 500; display: none; min-width: 170px;
+    border: 1px solid var(--border);
+}
+#ctxMenu button {
+    display: block; width: 100%; text-align: left;
+    padding: 9px 16px; background: none; border: none;
+    font-size: 13px; cursor: pointer; border-radius: 0; color: var(--text);
+}
+#ctxMenu button:hover { background: var(--hover); }
+#ctxMenu button.danger { color: #dc2626; }
+#ctxMenu button.danger:hover { background: #fee2e2; }
+
+/* ── Mobile back button ── */
+#backBtn { display: none; }
+
+/* ── Mobile: single column ── */
+@media (max-width: 640px) {
+    .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+        padding: 0;
+        gap: 0;
+    }
+    .panel { border-radius: 0; box-shadow: none; }
+    #sidebarPanel { display: flex; }
+    #chatPanel { display: none; }
+    .app.chat-open #sidebarPanel { display: none; }
+    .app.chat-open #chatPanel { display: flex; }
+    #backBtn { display: flex; }
+    .msg-media img, .msg-media video { max-width: calc(100vw - 80px); }
+    .callBox { bottom: 0; right: 0; left: 0; border-radius: 14px 14px 0 0; }
+}
 </style>
 </head>
 
 <body>
 
+<!-- Auth -->
 <div id="authOverlay">
   <div id="authBox">
+    <div class="auth-theme-row">
+      <button id="authThemeBtn" title="Сменить тему">#themeBtn</button>
+    </div>
     <h2 id="authTitle">Вход</h2>
     <input id="authNick" placeholder="Ник" autocomplete="username">
     <input id="authPassword" type="password" placeholder="Пароль" autocomplete="current-password">
     <div id="authError"></div>
-    <button class="primary" id="authSubmit">Войти</button>
+    <button class="btn-primary" id="authSubmit">Войти</button>
     <div id="authSwitch">Нет аккаунта? <a id="authToggle">Зарегистрироваться</a></div>
   </div>
 </div>
 
+<!-- App -->
 <div class="app" id="appDiv" style="display:none">
 
-<div class="panel">
-<div class="top" id="myNickLabel">Вы: — <button id="logoutBtn">Выйти</button></div>
+  <!-- Sidebar -->
+  <div class="panel" id="sidebarPanel">
+    <div class="top">
+      <span class="top-title" id="myNickLabel">Вы: —</span>
+      <div class="sidebar-actions">
+        <button id="themeBtn" title="Тема">🌙</button>
+        <button class="btn-danger btn-icon" id="logoutBtn" title="Выйти">⏻</button>
+      </div>
+    </div>
+    <div class="add-friend-row">
+      <input id="friendName" placeholder="Добавить по нику">
+      <button class="btn-primary" id="addFriend">+</button>
+    </div>
+    <div class="contacts" id="contacts"></div>
+  </div>
 
-<div style="padding:10px;border-bottom:1px solid #eee;display:flex;gap:5px">
-<input id="friendName" placeholder="Ник друга" style="flex:1">
-<button id="addFriend">+</button>
+  <!-- Chat -->
+  <div class="panel" id="chatPanel">
+    <div class="top">
+      <button class="btn-icon" id="backBtn">←</button>
+      <span class="top-title" id="chatHeader">Выберите чат<span id="typingIndicator"></span></span>
+      <button class="btn-icon" id="callBtn" title="Звонок">📞</button>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="composer">
+      <input id="messageInput" placeholder="Сообщение">
+      <button class="btn-icon" id="attachBtn" title="Файл">📎</button>
+      <input type="file" id="fileInput" accept="image/*,video/*,audio/*">
+      <button class="btn-icon" id="voiceBtn" title="Голосовое">🎤</button>
+      <button class="btn-primary" id="sendBtn">↑</button>
+    </div>
+  </div>
+
 </div>
 
-<div class="contacts" id="contacts"></div>
+<!-- Active call -->
+<div class="callBox" id="callBox" style="display:none">
+  <div id="callStatus">Звонок...</div>
+  <button class="btn-danger" id="endCall">Завершить</button>
 </div>
 
-<div class="panel">
-<div class="top" id="chatHeader">Чат не выбран<span id="typingIndicator"></span></div>
-<div class="messages" id="messages"></div>
-
-<div class="composer">
-<input id="messageInput" style="flex:1" placeholder="Сообщение">
-<button id="attachBtn" title="Прикрепить файл">📎</button>
-<input type="file" id="fileInput" accept="image/*,video/*,audio/*">
-<button id="voiceBtn" title="Голосовое сообщение">🎤</button>
-<button class="primary" id="sendBtn">Отправить</button>
-<button id="callBtn">📞</button>
-</div>
-</div>
-
-</div>
-
-<div class="callBox" id="callBox">
-<div id="callStatus">Звонок...</div>
-<button id="endCall">Завершить</button>
-</div>
-
+<!-- Incoming call -->
 <div id="incomingCall">
   <div id="incomingBox">
-    <div class="caller" id="incomingCaller">Неизвестный</div>
+    <div class="caller" id="incomingCaller"></div>
     <div class="sub">Входящий звонок...</div>
     <div class="call-btns">
       <button id="acceptCall">Принять</button>
@@ -164,6 +366,7 @@ button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
   </div>
 </div>
 
+<!-- Context menu -->
 <div id="ctxMenu">
   <button id="ctxClear">Очистить чат</button>
   <button id="ctxDelete" class="danger">Удалить контакт</button>
@@ -173,61 +376,83 @@ button{padding:8px 12px;border-radius:6px;border:none;cursor:pointer}
 <audio id="callSound" src="call.mp3" preload="auto" loop></audio>
 
 <script>
+// ── Тема ──────────────────────────────────────────────────────────────────
+let theme = localStorage.getItem("theme") || "light";
+function applyTheme(t) {
+    theme = t;
+    document.documentElement.setAttribute("data-theme", t);
+    localStorage.setItem("theme", t);
+    const icon = t === "dark" ? "☀️" : "🌙";
+    document.querySelectorAll("#themeBtn, #authThemeBtn").forEach(b => b.textContent = icon);
+}
+applyTheme(theme);
+document.getElementById("themeBtn").onclick = () => applyTheme(theme === "dark" ? "light" : "dark");
+document.getElementById("authThemeBtn").onclick = () => applyTheme(theme === "dark" ? "light" : "dark");
+
+// ── Состояние ─────────────────────────────────────────────────────────────
 let socket;
 let myName = "";
 let authMode = "login";
-let state = JSON.parse(localStorage.getItem("messenger_state") || '{"contacts":[],"conversations":{},"online":{},"unread":{},"lastMsg":{}}');
+let state = JSON.parse(localStorage.getItem("messenger_state") ||
+    '{"contacts":[],"conversations":{},"online":{},"unread":{},"lastMsg":{}}');
 if (!state.unread) state.unread = {};
 if (!state.lastMsg) state.lastMsg = {};
 let active = null;
 
-let peer;
-let localStream;
-
-// voice recording
-let mediaRecorder = null;
-let voiceChunks = [];
-
-const contactsEl = document.getElementById("contacts");
-const messagesEl = document.getElementById("messages");
-const chatHeader = document.getElementById("chatHeader");
-const msgSound = document.getElementById("msgSound");
-const callBox = document.getElementById("callBox");
-const authOverlay = document.getElementById("authOverlay");
-const appDiv = document.getElementById("appDiv");
-const authError = document.getElementById("authError");
-const authTitle = document.getElementById("authTitle");
-const authSubmit = document.getElementById("authSubmit");
-const authToggle = document.getElementById("authToggle");
-const authSwitch = document.getElementById("authSwitch");
-const voiceBtn = document.getElementById("voiceBtn");
-const fileInput = document.getElementById("fileInput");
-const callSound = document.getElementById("callSound");
-const incomingCall = document.getElementById("incomingCall");
-const incomingCaller = document.getElementById("incomingCaller");
-const typingIndicator = document.getElementById("typingIndicator");
-
-// pending incoming offer — stored until user accepts/rejects
+let peer, localStream;
+let mediaRecorder = null, voiceChunks = [];
 let pendingOffer = null;
-
-// typing: { [nick]: timeoutId }
 const typingTimers = {};
-// my typing debounce
-let myTypingTimer = null;
-let myTypingActive = false;
+let myTypingTimer = null, myTypingActive = false;
 
 function save() { localStorage.setItem("messenger_state", JSON.stringify(state)); }
 
+// ── Сессия — автовход ─────────────────────────────────────────────────────
+const savedSession = JSON.parse(localStorage.getItem("session") || "null");
+if (savedSession) {
+    // Попробуем автоматически войти сохранёнными данными
+    document.getElementById("authNick").value = savedSession.nick;
+    document.getElementById("authPassword").value = savedSession.password;
+}
+
+// ── DOM refs ──────────────────────────────────────────────────────────────
+const contactsEl    = document.getElementById("contacts");
+const messagesEl    = document.getElementById("messages");
+const chatHeader    = document.getElementById("chatHeader");
+const typingIndicator = document.getElementById("typingIndicator");
+const msgSound      = document.getElementById("msgSound");
+const callBox       = document.getElementById("callBox");
+const authOverlay   = document.getElementById("authOverlay");
+const appDiv        = document.getElementById("appDiv");
+const authError     = document.getElementById("authError");
+const authTitle     = document.getElementById("authTitle");
+const authSubmit    = document.getElementById("authSubmit");
+const authToggle    = document.getElementById("authToggle");
+const authSwitch    = document.getElementById("authSwitch");
+const voiceBtn      = document.getElementById("voiceBtn");
+const fileInput     = document.getElementById("fileInput");
+const callSound     = document.getElementById("callSound");
+const incomingCall  = document.getElementById("incomingCall");
+const incomingCaller = document.getElementById("incomingCaller");
+const appEl         = document.getElementById("appDiv");
+
+// ── Утилиты ───────────────────────────────────────────────────────────────
 function formatTime(ts) {
     if (!ts) return "";
-    const d = new Date(ts);
-    const now = new Date();
+    const d = new Date(ts), now = new Date();
     const pad = n => String(n).padStart(2, "0");
     const time = pad(d.getHours()) + ":" + pad(d.getMinutes());
     if (d.toDateString() === now.toDateString()) return time;
     return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + " " + time;
 }
 
+function b64toBlob(b64, type) {
+    const bytes = atob(b64), arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    return new Blob([arr], { type });
+}
+
+// ── Рендер сообщения ──────────────────────────────────────────────────────
 function renderMessageEl(m) {
     const wrap = document.createElement("div");
     wrap.className = "message " + (m.from === myName ? "me" : "them");
@@ -251,18 +476,18 @@ function renderMessageEl(m) {
             aud.controls = true;
             media.appendChild(aud);
         } else {
-            // generic file — download link
             const a = document.createElement("a");
             const blob = b64toBlob(m.mediaData, m.mediaType);
             a.href = URL.createObjectURL(blob);
             a.download = m.fileName || "file";
             a.textContent = "📄 " + (m.fileName || "file");
-            a.style.cssText = "color:#2563eb;font-size:13px";
+            a.style.cssText = "color:var(--accent);font-size:13px";
             media.appendChild(a);
         }
         wrap.appendChild(media);
     } else {
         const txt = document.createElement("span");
+        txt.className = "msg-text";
         txt.textContent = m.text || "";
         wrap.appendChild(txt);
     }
@@ -271,46 +496,33 @@ function renderMessageEl(m) {
     time.className = "msg-time";
     time.textContent = formatTime(m.ts);
     wrap.appendChild(time);
-
     return wrap;
 }
 
-function b64toBlob(b64, type) {
-    const bytes = atob(b64);
-    const arr = new Uint8Array(bytes.length);
-    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-    return new Blob([arr], { type });
-}
-
+// ── Рендер контактов ──────────────────────────────────────────────────────
 function renderContacts() {
     contactsEl.innerHTML = "";
     const sorted = [...state.contacts].sort((a, b) => (state.lastMsg[b] || 0) - (state.lastMsg[a] || 0));
     sorted.forEach(name => {
         const d = document.createElement("div");
-        d.className = "contact";
+        d.className = "contact" + (name === active ? " active-contact" : "");
 
         const left = document.createElement("div");
         left.className = "contact-left";
-
         const nameEl = document.createElement("div");
         nameEl.className = "contact-name";
         nameEl.textContent = name;
-
         const typingEl = document.createElement("div");
         typingEl.className = "contact-typing";
         typingEl.textContent = typingTimers[name] ? "печатает..." : "";
-
-        left.appendChild(nameEl);
-        left.appendChild(typingEl);
+        left.append(nameEl, typingEl);
 
         const right = document.createElement("div");
         right.className = "contact-right";
-
         const statusEl = document.createElement("span");
-        statusEl.className = state.online[name] ? "online" : "offline";
+        statusEl.className = state.online[name] ? "status-online" : "status-offline";
         statusEl.textContent = state.online[name] ? "● online" : "● offline";
         right.appendChild(statusEl);
-
         const unread = state.unread[name] || 0;
         if (unread > 0) {
             const badge = document.createElement("div");
@@ -319,36 +531,36 @@ function renderContacts() {
             right.appendChild(badge);
         }
 
-        d.appendChild(left);
-        d.appendChild(right);
-
-        d.onclick = () => {
-            active = name;
-            state.unread[name] = 0;
-            save();
-            chatHeader.firstChild.textContent = "Чат с " + name;
-            typingIndicator.textContent = "";
-            renderContacts();
-            renderMessages();
-        };
-        d.oncontextmenu = e => {
-            e.preventDefault();
-            showCtxMenu(e.clientX, e.clientY, name);
-        };
+        d.append(left, right);
+        d.onclick = () => openChat(name);
+        d.oncontextmenu = e => { e.preventDefault(); showCtxMenu(e.clientX, e.clientY, name); };
         contactsEl.appendChild(d);
     });
 }
 
+function openChat(name) {
+    active = name;
+    state.unread[name] = 0;
+    save();
+    chatHeader.firstChild.textContent = "Чат с " + name;
+    typingIndicator.textContent = "";
+    renderContacts();
+    renderMessages();
+    // mobile: switch to chat view
+    appEl.classList.add("chat-open");
+}
+
+// ── Рендер сообщений ──────────────────────────────────────────────────────
 function renderMessages() {
     messagesEl.innerHTML = "";
     if (!active) return;
-    const conv = state.conversations[active] || [];
-    conv.forEach(m => messagesEl.appendChild(renderMessageEl(m)));
+    (state.conversations[active] || []).forEach(m => messagesEl.appendChild(renderMessageEl(m)));
     messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
 function appendMessage(m) {
-    if (active === (m.from === myName ? m.to : m.from)) {
+    const peer = m.from === myName ? m.to : m.from;
+    if (active === peer) {
         messagesEl.appendChild(renderMessageEl(m));
         messagesEl.scrollTop = messagesEl.scrollHeight;
     }
@@ -364,11 +576,13 @@ function sendMsg(msg) {
     renderContacts();
 }
 
+// ── Обработчик сообщений ──────────────────────────────────────────────────
 function mainMessageHandler(e) {
     let data;
     try { data = JSON.parse(e.data); } catch { return; }
 
     if (data.type === "kicked") {
+        localStorage.removeItem("session");
         alert("Вы вошли с другого устройства.");
         location.reload();
         return;
@@ -377,11 +591,11 @@ function mainMessageHandler(e) {
     if (data.type === "onlineList") {
         state.online = data.users;
         save(); renderContacts();
+        return;
     }
 
     if (data.type === "typing") {
         const from = data.from;
-        // show in contact list
         if (typingTimers[from]) clearTimeout(typingTimers[from]);
         typingTimers[from] = setTimeout(() => {
             delete typingTimers[from];
@@ -389,88 +603,76 @@ function mainMessageHandler(e) {
             if (active === from) typingIndicator.textContent = "";
         }, 3000);
         renderContacts();
-        // show in chat header
         if (active === from) typingIndicator.textContent = " печатает...";
         return;
     }
 
     if (data.type === "message") {
         const from = data.from;
-        // clear typing when message arrives
-        if (typingTimers[from]) {
-            clearTimeout(typingTimers[from]);
-            delete typingTimers[from];
-        }
+        if (typingTimers[from]) { clearTimeout(typingTimers[from]); delete typingTimers[from]; }
         if (active === from) typingIndicator.textContent = "";
-
         if (!state.conversations[from]) state.conversations[from] = [];
         state.conversations[from].push(data);
         if (!state.contacts.includes(from)) state.contacts.push(from);
         state.lastMsg[from] = data.ts || Date.now();
-        if (active !== from) {
-            state.unread[from] = (state.unread[from] || 0) + 1;
-        }
-        msgSound.play();
+        if (active !== from) state.unread[from] = (state.unread[from] || 0) + 1;
+        msgSound.play().catch(() => {});
         save(); renderContacts();
         appendMessage(data);
-    }
-
-    if (data.type === "signal") {
-        handleSignal(data);
-    }
-}
-
-function connectAndAuth() {
-    const nick = document.getElementById("authNick").value.trim();
-    const password = document.getElementById("authPassword").value;
-    authError.textContent = "";
-
-    if (!nick || !password) {
-        authError.textContent = "Заполните все поля";
         return;
     }
 
+    if (data.type === "signal") { handleSignal(data); }
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+function connectAndAuth(nick, password) {
+    authError.textContent = "";
+    if (!nick || !password) { authError.textContent = "Заполните все поля"; return; }
     authSubmit.disabled = true;
 
     const wsUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
     socket = new WebSocket(wsUrl);
 
-    socket.onopen = () => {
-        socket.send(JSON.stringify({ type: authMode, nick, password }));
-    };
+    socket.onopen = () => socket.send(JSON.stringify({ type: authMode, nick, password }));
 
     socket.onmessage = e => {
         let data;
         try { data = JSON.parse(e.data); } catch { return; }
-
-        if (data.type === "authResult") {
-            if (data.success) {
-                myName = data.nick;
-                document.getElementById("myNickLabel").firstChild.textContent = "Вы: " + myName + " ";
-                authOverlay.style.display = "none";
-                appDiv.style.display = "grid";
-                socket.onmessage = mainMessageHandler;
-            } else {
-                authError.textContent = data.error || "Ошибка";
-                authSubmit.disabled = false;
-                socket.close();
-            }
+        if (data.type !== "authResult") return;
+        if (data.success) {
+            myName = data.nick;
+            // сохраняем сессию
+            localStorage.setItem("session", JSON.stringify({ nick, password }));
+            document.getElementById("myNickLabel").textContent = "Вы: " + myName;
+            authOverlay.style.display = "none";
+            appDiv.style.display = "grid";
+            socket.onmessage = mainMessageHandler;
+            renderContacts();
+        } else {
+            authError.textContent = data.error || "Ошибка";
+            authSubmit.disabled = false;
+            socket.close();
+            // если автовход провалился — убираем сохранённые данные
+            localStorage.removeItem("session");
         }
     };
 
     socket.onerror = () => {
-        authError.textContent = "Ошибка подключения к серверу";
+        authError.textContent = "Ошибка подключения";
         authSubmit.disabled = false;
     };
 }
 
-authSubmit.onclick = connectAndAuth;
-document.getElementById("authNick").addEventListener("keydown", e => {
-    if (e.key === "Enter") connectAndAuth();
-});
-document.getElementById("authPassword").addEventListener("keydown", e => {
-    if (e.key === "Enter") connectAndAuth();
-});
+authSubmit.onclick = () => connectAndAuth(
+    document.getElementById("authNick").value.trim(),
+    document.getElementById("authPassword").value
+);
+["authNick","authPassword"].forEach(id =>
+    document.getElementById(id).addEventListener("keydown", e => {
+        if (e.key === "Enter") authSubmit.click();
+    })
+);
 
 authToggle.onclick = () => {
     if (authMode === "login") {
@@ -488,22 +690,22 @@ authToggle.onclick = () => {
     document.getElementById("authToggle").onclick = authToggle.onclick;
 };
 
-// --- Send text ---
+// автовход при загрузке
+if (savedSession) {
+    connectAndAuth(savedSession.nick, savedSession.password);
+}
+
+// ── Отправка текста ───────────────────────────────────────────────────────
 document.getElementById("sendBtn").onclick = () => {
     if (!active) return;
     const text = document.getElementById("messageInput").value.trim();
     if (!text) return;
-    const msg = { type: "message", from: myName, to: active, text, ts: Date.now() };
+    sendMsg({ type: "message", from: myName, to: active, text, ts: Date.now() });
     document.getElementById("messageInput").value = "";
-    sendMsg(msg);
+    myTypingActive = false;
 };
 document.getElementById("messageInput").addEventListener("keydown", e => {
-    if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        document.getElementById("sendBtn").click();
-        return;
-    }
-    // typing indicator
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); document.getElementById("sendBtn").click(); return; }
     if (!active || !socket) return;
     if (!myTypingActive) {
         myTypingActive = true;
@@ -513,111 +715,73 @@ document.getElementById("messageInput").addEventListener("keydown", e => {
     myTypingTimer = setTimeout(() => { myTypingActive = false; }, 2500);
 });
 
-// --- Attach file ---
-document.getElementById("attachBtn").onclick = () => {
-    if (!active) return;
-    fileInput.click();
-};
+// ── Файл ──────────────────────────────────────────────────────────────────
+document.getElementById("attachBtn").onclick = () => { if (active) fileInput.click(); };
 fileInput.onchange = () => {
     const file = fileInput.files[0];
     if (!file) return;
     fileInput.value = "";
-
-    const MAX = 10 * 1024 * 1024; // 10 MB
-    if (file.size > MAX) {
-        alert("Файл слишком большой (макс. 10 МБ)");
-        return;
-    }
-
+    if (file.size > 10 * 1024 * 1024) { alert("Файл слишком большой (макс. 10 МБ)"); return; }
     const reader = new FileReader();
-    reader.onload = ev => {
-        const dataUrl = ev.target.result;
-        const base64 = dataUrl.split(",")[1];
-        const msg = {
-            type: "message",
-            from: myName,
-            to: active,
-            text: "",
-            mediaType: file.type,
-            mediaData: base64,
-            fileName: file.name,
-            ts: Date.now()
-        };
-        sendMsg(msg);
-    };
+    reader.onload = ev => sendMsg({
+        type: "message", from: myName, to: active, text: "",
+        mediaType: file.type, mediaData: ev.target.result.split(",")[1],
+        fileName: file.name, ts: Date.now()
+    });
     reader.readAsDataURL(file);
 };
 
-// --- Voice message ---
+// ── Голосовое ─────────────────────────────────────────────────────────────
 voiceBtn.onclick = async () => {
     if (!active) return;
-
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-        return;
-    }
-
+    if (mediaRecorder && mediaRecorder.state === "recording") { mediaRecorder.stop(); return; }
     let stream;
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-        alert("Нет доступа к микрофону");
-        return;
-    }
-
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch { alert("Нет доступа к микрофону"); return; }
     voiceChunks = [];
     mediaRecorder = new MediaRecorder(stream);
     mediaRecorder.ondataavailable = e => voiceChunks.push(e.data);
     mediaRecorder.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
         voiceBtn.classList.remove("recording");
-        voiceBtn.title = "Голосовое сообщение";
-
         const blob = new Blob(voiceChunks, { type: mediaRecorder.mimeType || "audio/webm" });
         const reader = new FileReader();
-        reader.onload = ev => {
-            const base64 = ev.target.result.split(",")[1];
-            const msg = {
-                type: "message",
-                from: myName,
-                to: active,
-                text: "",
-                mediaType: blob.type,
-                mediaData: base64,
-                fileName: "voice.webm",
-                ts: Date.now()
-            };
-            sendMsg(msg);
-        };
+        reader.onload = ev => sendMsg({
+            type: "message", from: myName, to: active, text: "",
+            mediaType: blob.type, mediaData: ev.target.result.split(",")[1],
+            fileName: "voice.webm", ts: Date.now()
+        });
         reader.readAsDataURL(blob);
     };
-
     mediaRecorder.start();
     voiceBtn.classList.add("recording");
-    voiceBtn.title = "Остановить запись";
 };
 
-// --- Logout ---
+// ── Выйти ─────────────────────────────────────────────────────────────────
 document.getElementById("logoutBtn").onclick = () => {
+    localStorage.removeItem("session");
     if (socket) socket.close();
     location.reload();
 };
 
-// --- Context menu ---
+// ── Назад (мобильный) ─────────────────────────────────────────────────────
+document.getElementById("backBtn").onclick = () => {
+    appEl.classList.remove("chat-open");
+    active = null;
+};
+
+// ── Контекстное меню ──────────────────────────────────────────────────────
 const ctxMenu = document.getElementById("ctxMenu");
 let ctxTarget = null;
-
 function showCtxMenu(x, y, name) {
     ctxTarget = name;
-    ctxMenu.style.left = x + "px";
-    ctxMenu.style.top = y + "px";
+    // не вылезать за край экрана
+    const mw = 170, mh = 80;
+    ctxMenu.style.left = Math.min(x, window.innerWidth - mw - 8) + "px";
+    ctxMenu.style.top  = Math.min(y, window.innerHeight - mh - 8) + "px";
     ctxMenu.style.display = "block";
 }
-function hideCtxMenu() {
-    ctxMenu.style.display = "none";
-    ctxTarget = null;
-}
-
+function hideCtxMenu() { ctxMenu.style.display = "none"; ctxTarget = null; }
 document.addEventListener("click", hideCtxMenu);
 document.addEventListener("keydown", e => { if (e.key === "Escape") hideCtxMenu(); });
 
@@ -632,31 +796,33 @@ document.getElementById("ctxDelete").onclick = () => {
     if (!ctxTarget) return;
     state.contacts = state.contacts.filter(c => c !== ctxTarget);
     delete state.conversations[ctxTarget];
+    delete state.unread[ctxTarget];
+    delete state.lastMsg[ctxTarget];
     if (active === ctxTarget) {
         active = null;
-        chatHeader.firstChild.textContent = "Чат не выбран";
+        chatHeader.firstChild.textContent = "Выберите чат";
         typingIndicator.textContent = "";
         renderMessages();
+        appEl.classList.remove("chat-open");
     }
     save(); renderContacts();
     hideCtxMenu();
 };
 
-// --- Add friend ---
+// ── Добавить контакт ──────────────────────────────────────────────────────
 document.getElementById("addFriend").onclick = () => {
-    let f = document.getElementById("friendName").value.trim();
+    const f = document.getElementById("friendName").value.trim();
     if (!f) return;
     if (!state.contacts.includes(f)) state.contacts.push(f);
     document.getElementById("friendName").value = "";
     save(); renderContacts();
 };
+document.getElementById("friendName").addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("addFriend").click();
+});
 
-// --- Call ---
-function stopCallSound() {
-    callSound.pause();
-    callSound.currentTime = 0;
-}
-
+// ── Звонки ────────────────────────────────────────────────────────────────
+function stopCallSound() { callSound.pause(); callSound.currentTime = 0; }
 function endActiveCall() {
     if (peer) { peer.close(); peer = null; }
     if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
@@ -673,96 +839,76 @@ async function startCall() {
     await peer.setLocalDescription(offer);
     socket.send(JSON.stringify({ type: "signal", from: myName, to: active, data: offer }));
     document.getElementById("callStatus").textContent = "Ожидание ответа...";
-    callBox.style.display = "block";
+    callBox.style.display = "flex";
 }
 
 function createPeer(callTarget) {
     const pc = new RTCPeerConnection();
     pc.onicecandidate = e => {
-        if (e.candidate) {
+        if (e.candidate)
             socket.send(JSON.stringify({ type: "signal", from: myName, to: callTarget, data: e.candidate }));
-        }
     };
-    pc.ontrack = e => {
-        const audio = new Audio();
-        audio.srcObject = e.streams[0];
-        audio.play();
-    };
+    pc.ontrack = e => { const a = new Audio(); a.srcObject = e.streams[0]; a.play(); };
     pc.onconnectionstatechange = () => {
-        if (pc.connectionState === "connected") {
+        if (pc.connectionState === "connected")
             document.getElementById("callStatus").textContent = "Звонок с " + callTarget;
-        }
     };
     return pc;
 }
 
 async function handleSignal(data) {
     if (data.data.type === "offer") {
-        // Store offer and show incoming call UI
         pendingOffer = data;
         incomingCaller.textContent = data.from;
         incomingCall.style.display = "flex";
         callSound.play().catch(() => {});
-
     } else if (data.data.type === "answer") {
         if (!peer) return;
         stopCallSound();
         await peer.setRemoteDescription(new RTCSessionDescription(data.data));
         document.getElementById("callStatus").textContent = "Звонок...";
-
     } else if (data.data === "rejected") {
-        stopCallSound();
-        endActiveCall();
+        stopCallSound(); endActiveCall();
         document.getElementById("callStatus").textContent = "Звонок отклонён";
-
     } else {
-        // ICE candidate
-        if (peer) {
-            try { await peer.addIceCandidate(new RTCIceCandidate(data.data)); } catch {}
-        }
+        if (peer) try { await peer.addIceCandidate(new RTCIceCandidate(data.data)); } catch {}
     }
 }
 
 document.getElementById("acceptCall").onclick = async () => {
     if (!pendingOffer) return;
-    const data = pendingOffer;
-    pendingOffer = null;
+    const data = pendingOffer; pendingOffer = null;
     incomingCall.style.display = "none";
     stopCallSound();
-
     active = data.from;
     chatHeader.firstChild.textContent = "Чат с " + active;
     typingIndicator.textContent = "";
-
+    appEl.classList.add("chat-open");
+    renderContacts(); renderMessages();
     peer = createPeer(data.from);
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     localStream.getTracks().forEach(t => peer.addTrack(t, localStream));
-
     await peer.setRemoteDescription(new RTCSessionDescription(data.data));
     const answer = await peer.createAnswer();
     await peer.setLocalDescription(answer);
     socket.send(JSON.stringify({ type: "signal", from: myName, to: data.from, data: answer }));
-
     document.getElementById("callStatus").textContent = "Звонок с " + data.from;
-    callBox.style.display = "block";
+    callBox.style.display = "flex";
 };
 
 document.getElementById("rejectCall").onclick = () => {
     if (!pendingOffer) return;
-    const from = pendingOffer.from;
-    pendingOffer = null;
+    const from = pendingOffer.from; pendingOffer = null;
     incomingCall.style.display = "none";
     stopCallSound();
     socket.send(JSON.stringify({ type: "signal", from: myName, to: from, data: "rejected" }));
 };
 
 document.getElementById("callBtn").onclick = startCall;
-document.getElementById("endCall").onclick = () => {
-    endActiveCall();
-};
+document.getElementById("endCall").onclick = endActiveCall;
 
+// ── Инициализация ─────────────────────────────────────────────────────────
 renderContacts();
 </script>
-
 </body>
 </html>
