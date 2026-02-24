@@ -270,6 +270,179 @@ button:active { opacity: .8; }
 #ctxMenu button.danger { color: #dc2626; }
 #ctxMenu button.danger:hover { background: #fee2e2; }
 
+/* ── Message context menu ── */
+#msgCtxMenu {
+    position: fixed; background: var(--panel); border-radius: 10px;
+    box-shadow: 0 4px 24px var(--shadow);
+    padding: 4px 0; z-index: 600; display: none; min-width: 160px;
+    border: 1px solid var(--border);
+}
+#msgCtxMenu button {
+    display: block; width: 100%; text-align: left;
+    padding: 9px 16px; background: none; border: none;
+    font-size: 13px; cursor: pointer; border-radius: 0; color: var(--text);
+}
+#msgCtxMenu button:hover { background: var(--hover); }
+#msgCtxMenu button.danger { color: #dc2626; }
+#msgCtxMenu button.danger:hover { background: #fee2e2; }
+
+/* ── Edit bar (replaces composer input when editing) ── */
+#editBar {
+    display: none;
+    padding: 6px 10px;
+    background: var(--hover);
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text2);
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+#editBar span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#editCancelBtn { font-size: 16px; padding: 2px 6px; background: none; color: var(--text2); }
+#editCancelBtn:hover { color: var(--text); }
+
+/* ── Deleted / edited message ── */
+.msg-deleted { color: var(--text2); font-style: italic; }
+.msg-edited { font-size: 10px; color: var(--text2); }
+
+/* ── Read status ticks ── */
+.msg-ticks { font-size: 12px; margin-left: 3px; color: var(--text2); }
+.msg-ticks.read { color: #2563eb; }
+
+/* ── Last seen in chat header ── */
+#lastSeenLabel { font-size: 11px; color: var(--text2); font-weight: normal; display: block; line-height: 1.2; }
+
+/* ── Read receipts in group (avatars/nicks under message) ── */
+.msg-read-by { font-size: 10px; color: var(--text2); margin-top: 1px; }
+
+/* ── Reply quote inside message ── */
+.msg-reply-quote {
+    border-left: 3px solid var(--accent);
+    padding: 3px 8px;
+    margin-bottom: 4px;
+    background: rgba(37,99,235,.08);
+    border-radius: 0 6px 6px 0;
+    cursor: pointer;
+    max-width: 100%;
+}
+.msg-reply-quote:hover { background: rgba(37,99,235,.15); }
+.msg-reply-author { font-size: 11px; font-weight: 600; color: var(--accent); }
+.msg-reply-text { font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+
+/* ── Reply bar above composer ── */
+#replyBar {
+    display: none;
+    padding: 6px 10px;
+    background: var(--hover);
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text2);
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+#replyBar .reply-bar-inner { flex: 1; overflow: hidden; }
+#replyBar .reply-bar-author { font-size: 11px; font-weight: 600; color: var(--accent); }
+#replyBar .reply-bar-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#replyCancelBtn { font-size: 16px; padding: 2px 6px; background: none; color: var(--text2); }
+#replyCancelBtn:hover { color: var(--text); }
+
+/* ── Forward label inside message ── */
+.msg-forward-label {
+    font-size: 11px; color: var(--accent); font-style: italic;
+    border-left: 2px solid var(--accent); padding-left: 6px;
+    margin-bottom: 3px;
+}
+
+/* ── Forward modal ── */
+#forwardModal {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    display: none; align-items: center; justify-content: center; z-index: 810;
+}
+#forwardBox {
+    background: var(--panel); border-radius: 16px; padding: 22px 20px;
+    box-shadow: 0 12px 40px var(--shadow); width: min(340px, 94vw);
+    display: flex; flex-direction: column; gap: 10px;
+}
+#forwardBox h3 { margin: 0; font-size: 1.05rem; }
+#forwardSearch { width: 100%; }
+#forwardList { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; }
+.forward-item {
+    padding: 8px 10px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; display: flex; align-items: center; gap: 6px;
+    transition: background .1s;
+}
+.forward-item:hover { background: var(--hover); }
+
+/* ── Emoji reaction picker (inside context menu) ── */
+.reaction-picker {
+    display: flex; gap: 4px; padding: 6px 10px 4px;
+    flex-wrap: wrap; max-width: 220px;
+}
+.reaction-picker button {
+    font-size: 20px; padding: 3px 5px; border-radius: 6px;
+    background: none; line-height: 1;
+}
+.reaction-picker button:hover { background: var(--hover); }
+
+/* ── Reactions row under message ── */
+.msg-reactions {
+    display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
+}
+.reaction-chip {
+    display: flex; align-items: center; gap: 3px;
+    background: var(--hover); border: 1px solid var(--border);
+    border-radius: 999px; padding: 2px 7px; font-size: 13px;
+    cursor: pointer; user-select: none; transition: background .12s;
+}
+.reaction-chip:hover { background: var(--me-bg); }
+.reaction-chip.mine { background: var(--me-bg); border-color: var(--accent); }
+.reaction-chip .rc-count { font-size: 11px; color: var(--text2); }
+
+/* ── New group button ── */
+#newGroupBtn {
+    font-size: 18px; padding: 6px 9px;
+    background: transparent; color: var(--text2); border-radius: 8px;
+}
+#newGroupBtn:hover { background: var(--hover); color: var(--text); }
+
+/* ── Group modal overlay ── */
+#groupModal {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    display: none; align-items: center; justify-content: center; z-index: 800;
+}
+#groupBox {
+    background: var(--panel); border-radius: 16px; padding: 28px 26px;
+    box-shadow: 0 12px 40px var(--shadow); width: min(360px, 94vw);
+    display: flex; flex-direction: column; gap: 12px;
+}
+#groupBox h3 { margin: 0; font-size: 1.1rem; }
+#groupBox input { width: 100%; }
+#groupMembersList {
+    display: flex; flex-direction: column; gap: 6px;
+    max-height: 160px; overflow-y: auto;
+}
+.group-member-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 8px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--hover);
+    font-size: 13px;
+}
+.group-member-row .remove-member {
+    margin-left: auto; background: none; padding: 2px 6px;
+    color: #dc2626; font-size: 14px; border-radius: 6px;
+}
+.group-member-row .remove-member:hover { background: #fee2e2; }
+#groupModalError { color: #dc2626; font-size: 12px; min-height: 16px; }
+.group-modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ── Group badge in contacts ── */
+.contact-group-icon { font-size: 11px; color: var(--text2); margin-right: 3px; }
+
+/* ── Message sender name (in groups) ── */
+.msg-sender { font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 1px; }
+
 /* ── Mobile back button ── */
 #backBtn { display: none; }
 
@@ -318,6 +491,7 @@ button:active { opacity: .8; }
     <div class="top">
       <span class="top-title" id="myNickLabel">Вы: —</span>
       <div class="sidebar-actions">
+        <button id="newGroupBtn" title="Создать группу">👥</button>
         <button id="themeBtn" title="Тема">🌙</button>
         <button class="btn-danger btn-icon" id="logoutBtn" title="Выйти">⏻</button>
       </div>
@@ -333,10 +507,22 @@ button:active { opacity: .8; }
   <div class="panel" id="chatPanel">
     <div class="top">
       <button class="btn-icon" id="backBtn">←</button>
-      <span class="top-title" id="chatHeader">Выберите чат<span id="typingIndicator"></span></span>
+      <span class="top-title" id="chatHeader">Выберите чат<span id="typingIndicator"></span><span id="lastSeenLabel"></span></span>
+      <button class="btn-icon" id="addMemberBtn" title="Добавить участника" style="display:none">➕</button>
       <button class="btn-icon" id="callBtn" title="Звонок">📞</button>
     </div>
     <div class="messages" id="messages"></div>
+    <div id="replyBar">
+      <div class="reply-bar-inner">
+        <div class="reply-bar-author" id="replyBarAuthor"></div>
+        <div class="reply-bar-text" id="replyBarText"></div>
+      </div>
+      <button id="replyCancelBtn" title="Отмена">✕</button>
+    </div>
+    <div id="editBar">
+      <span id="editBarText"></span>
+      <button id="editCancelBtn" title="Отмена">✕</button>
+    </div>
     <div class="composer">
       <input id="messageInput" placeholder="Сообщение">
       <button class="btn-icon" id="attachBtn" title="Файл">📎</button>
@@ -346,6 +532,39 @@ button:active { opacity: .8; }
     </div>
   </div>
 
+</div>
+
+<!-- Group create modal -->
+<div id="groupModal">
+  <div id="groupBox">
+    <h3>Новая группа</h3>
+    <input id="groupNameInput" placeholder="Название группы (макс. 64 символа)">
+    <div style="display:flex;gap:6px">
+      <input id="groupMemberInput" placeholder="Добавить участника по нику" style="flex:1">
+      <button class="btn-primary" id="groupAddMemberBtn">+</button>
+    </div>
+    <div id="groupMembersList"></div>
+    <div id="groupModalError"></div>
+    <div class="group-modal-btns">
+      <button id="groupCancelBtn">Отмена</button>
+      <button class="btn-primary" id="groupCreateBtn">Создать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add member modal -->
+<div id="addMemberModal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:800">
+  <div style="background:var(--panel);border-radius:16px;padding:24px 22px;box-shadow:0 12px 40px var(--shadow);width:min(320px,92vw);display:flex;flex-direction:column;gap:12px">
+    <h3 style="margin:0;font-size:1.1rem">Добавить участника</h3>
+    <div style="display:flex;gap:6px">
+      <input id="addMemberNickInput" placeholder="Ник пользователя" style="flex:1">
+      <button class="btn-primary" id="addMemberConfirmBtn">Добавить</button>
+    </div>
+    <div id="addMemberError" style="color:#dc2626;font-size:12px;min-height:16px"></div>
+    <div style="display:flex;justify-content:flex-end">
+      <button id="addMemberCancelBtn">Отмена</button>
+    </div>
+  </div>
 </div>
 
 <!-- Active call -->
@@ -366,10 +585,42 @@ button:active { opacity: .8; }
   </div>
 </div>
 
+<!-- Message context menu -->
+<div id="msgCtxMenu">
+  <div class="reaction-picker" id="reactionPicker">
+    <button data-emoji="👍">👍</button>
+    <button data-emoji="❤️">❤️</button>
+    <button data-emoji="😂">😂</button>
+    <button data-emoji="😮">😮</button>
+    <button data-emoji="😢">😢</button>
+    <button data-emoji="🔥">🔥</button>
+    <button data-emoji="👎">👎</button>
+    <button data-emoji="🎉">🎉</button>
+  </div>
+  <div style="height:1px;background:var(--border);margin:2px 0"></div>
+  <button id="msgCtxReply">Ответить</button>
+  <button id="msgCtxForward">Переслать</button>
+  <button id="msgCtxEdit">Редактировать</button>
+  <button id="msgCtxDelete" class="danger">Удалить</button>
+</div>
+
+<!-- Forward modal -->
+<div id="forwardModal">
+  <div id="forwardBox">
+    <h3>Переслать в...</h3>
+    <input id="forwardSearch" placeholder="Поиск по чатам">
+    <div id="forwardList"></div>
+    <div style="display:flex;justify-content:flex-end">
+      <button id="forwardCancelBtn">Отмена</button>
+    </div>
+  </div>
+</div>
+
 <!-- Context menu -->
 <div id="ctxMenu">
   <button id="ctxClear">Очистить чат</button>
   <button id="ctxDelete" class="danger">Удалить контакт</button>
+  <button id="ctxLeaveGroup" class="danger" style="display:none">Покинуть группу</button>
 </div>
 
 <audio id="msgSound" src="message.mp3" preload="auto"></audio>
@@ -394,9 +645,14 @@ let socket;
 let myName = "";
 let authMode = "login";
 let state = JSON.parse(localStorage.getItem("messenger_state") ||
-    '{"contacts":[],"conversations":{},"online":{},"unread":{},"lastMsg":{}}');
+    '{"contacts":[],"conversations":{},"online":{},"unread":{},"lastMsg":{},"groups":{},"readStatus":{},"groupReadBy":{},"lastSeen":{}}');
 if (!state.unread) state.unread = {};
 if (!state.lastMsg) state.lastMsg = {};
+if (!state.groups) state.groups = {};
+if (!state.readStatus) state.readStatus = {};   // convKey -> lastReadId (прочитано собеседником)
+if (!state.groupReadBy) state.groupReadBy = {}; // msgId -> [nick, ...]
+if (!state.lastSeen) state.lastSeen = {};       // nick -> timestamp
+if (!state.reactions) state.reactions = {};     // msgId -> { emoji: [nick, ...], ... }
 let active = null;
 
 let peer, localStream;
@@ -418,6 +674,10 @@ function showSystemMsg(text) {
 
 // Очередь колбэков ожидающих ответа nickResult: { [nick]: [fn, ...] }
 const nickCallbacks = {};
+
+// Текущее редактируемое сообщение: { conv, idx } или null
+let editingMsg = null;
+let replyingTo = null; // объект { id, from, text, mediaType }
 
 // ── Сессия — автовход ─────────────────────────────────────────────────────
 const savedSession = JSON.parse(localStorage.getItem("session") || "null");
@@ -447,6 +707,7 @@ const callSound     = document.getElementById("callSound");
 const incomingCall  = document.getElementById("incomingCall");
 const incomingCaller = document.getElementById("incomingCaller");
 const appEl         = document.getElementById("appDiv");
+const lastSeenLabel = document.getElementById("lastSeenLabel");
 
 // ── Утилиты ───────────────────────────────────────────────────────────────
 function formatTime(ts) {
@@ -458,6 +719,25 @@ function formatTime(ts) {
     return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + " " + time;
 }
 
+function formatLastSeen(ts) {
+    if (!ts) return "";
+    const diff = Date.now() - ts;
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (mins < 1) return "был(а) только что";
+    if (mins < 60) return "был(а) " + mins + " мин. назад";
+    if (hours < 24) return "был(а) " + hours + " ч. назад";
+    return "был(а) " + days + " дн. назад";
+}
+
+function updateLastSeenLabel() {
+    if (!active || active.startsWith("g_")) { lastSeenLabel.textContent = ""; return; }
+    if (state.online[active]) { lastSeenLabel.textContent = ""; return; }
+    const ts = state.lastSeen[active];
+    lastSeenLabel.textContent = ts ? formatLastSeen(ts) : "";
+}
+
 function b64toBlob(b64, type) {
     const bytes = atob(b64), arr = new Uint8Array(bytes.length);
     for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
@@ -465,11 +745,56 @@ function b64toBlob(b64, type) {
 }
 
 // ── Рендер сообщения ──────────────────────────────────────────────────────
-function renderMessageEl(m) {
+function renderMessageEl(m, showSender) {
+    const isMine = m.from === myName;
     const wrap = document.createElement("div");
-    wrap.className = "message " + (m.from === myName ? "me" : "them");
+    wrap.className = "message " + (isMine ? "me" : "them");
+    if (m.id) wrap.dataset.id = m.id;
 
-    if (m.mediaType && m.mediaData) {
+    // Показываем имя отправителя в групповом чате для чужих сообщений
+    if (showSender && !isMine && m.from) {
+        const senderEl = document.createElement("div");
+        senderEl.className = "msg-sender";
+        senderEl.textContent = m.from;
+        wrap.appendChild(senderEl);
+    }
+
+    if (m.replyTo) {
+        const quote = document.createElement("div");
+        quote.className = "msg-reply-quote";
+        const author = document.createElement("div");
+        author.className = "msg-reply-author";
+        author.textContent = m.replyTo.from;
+        const preview = document.createElement("div");
+        preview.className = "msg-reply-text";
+        preview.textContent = m.replyTo.text || (m.replyTo.mediaType ? "📎 Вложение" : "");
+        quote.append(author, preview);
+        quote.onclick = (e) => {
+            e.stopPropagation();
+            const target = messagesEl.querySelector(`[data-id="${m.replyTo.id}"]`);
+            if (target) {
+                target.scrollIntoView({ behavior: "smooth", block: "center" });
+                target.style.transition = "background .3s";
+                target.style.background = "var(--me-bg)";
+                setTimeout(() => target.style.background = "", 1200);
+            }
+        };
+        wrap.appendChild(quote);
+    }
+
+    if (m.forwardedFrom) {
+        const fwd = document.createElement("div");
+        fwd.className = "msg-forward-label";
+        fwd.textContent = "Переслано от " + m.forwardedFrom;
+        wrap.appendChild(fwd);
+    }
+
+    if (m.deleted) {
+        const txt = document.createElement("span");
+        txt.className = "msg-text msg-deleted";
+        txt.textContent = "Сообщение удалено";
+        wrap.appendChild(txt);
+    } else if (m.mediaType && m.mediaData) {
         const media = document.createElement("div");
         media.className = "msg-media";
         if (m.mediaType.startsWith("image/")) {
@@ -504,38 +829,117 @@ function renderMessageEl(m) {
         wrap.appendChild(txt);
     }
 
-    const time = document.createElement("span");
-    time.className = "msg-time";
-    time.textContent = formatTime(m.ts);
-    wrap.appendChild(time);
+    // нижняя строка: время + пометка "изменено" + галочки
+    const meta = document.createElement("span");
+    meta.className = "msg-time";
+    meta.textContent = formatTime(m.ts) + (m.edited && !m.deleted ? " · изм." : "");
+
+    if (isMine && m.id && !m.deleted) {
+        const ticks = document.createElement("span");
+        ticks.className = "msg-ticks";
+        ticks.dataset.ticksFor = m.id;
+        if (showSender) {
+            // групповой чат — показываем кто прочитал под сообщением
+            const readers = (state.groupReadBy[m.id] || []);
+            ticks.textContent = readers.length > 0 ? "✓✓" : "✓";
+            if (readers.length > 0) ticks.classList.add("read");
+        } else {
+            // ЛС — сравниваем lastReadId собеседника
+            const convKey = m.to === myName ? m.from : m.to;
+            const lastRead = state.readStatus[convKey];
+            const conv = state.conversations[convKey] || [];
+            const msgIdx = conv.findIndex(x => x.id === m.id);
+            const lastReadIdx = lastRead ? conv.findIndex(x => x.id === lastRead) : -1;
+            const isRead = lastRead && lastReadIdx >= msgIdx && msgIdx !== -1;
+            ticks.textContent = isRead ? "✓✓" : "✓";
+            if (isRead) ticks.classList.add("read");
+        }
+        meta.appendChild(ticks);
+    }
+    wrap.appendChild(meta);
+
+    // Для групп: список ников кто прочитал (под своими сообщениями)
+    if (isMine && showSender && m.id && !m.deleted) {
+        const readers = state.groupReadBy[m.id] || [];
+        if (readers.length > 0) {
+            const rb = document.createElement("div");
+            rb.className = "msg-read-by";
+            rb.dataset.readBy = m.id;
+            rb.textContent = "Прочитали: " + readers.join(", ");
+            wrap.appendChild(rb);
+        }
+    }
+
+    // Реакции
+    if (m.id) {
+        const reacts = state.reactions[m.id];
+        if (reacts && Object.keys(reacts).length > 0) {
+            const row = document.createElement("div");
+            row.className = "msg-reactions";
+            row.dataset.reactionsFor = m.id;
+            renderReactionChips(row, m.id);
+            wrap.appendChild(row);
+        }
+    }
+
+    // контекстное меню на любом сообщении (не удалённом)
+    if (!m.deleted && m.id) {
+        const openMenu = (e) => {
+            e.preventDefault();
+            showMsgCtxMenu(e.clientX || e.touches?.[0]?.clientX || 0,
+                           e.clientY || e.touches?.[0]?.clientY || 0, m);
+        };
+        wrap.addEventListener("contextmenu", openMenu);
+        let longPress;
+        wrap.addEventListener("touchstart", () => { longPress = setTimeout(() => openMenu({ preventDefault(){}, clientX:0, clientY: wrap.getBoundingClientRect().top + 40 }), 600); }, { passive: true });
+        wrap.addEventListener("touchend", () => clearTimeout(longPress));
+        wrap.addEventListener("touchmove", () => clearTimeout(longPress));
+    }
+
     return wrap;
 }
 
 // ── Рендер контактов ──────────────────────────────────────────────────────
 function renderContacts() {
     contactsEl.innerHTML = "";
-    const sorted = [...state.contacts].sort((a, b) => (state.lastMsg[b] || 0) - (state.lastMsg[a] || 0));
-    sorted.forEach(name => {
+
+    // Собираем все айтемы: личные контакты + группы
+    const items = [];
+    state.contacts.forEach(name => items.push({ key: name, isGroup: false }));
+    Object.keys(state.groups).forEach(gid => items.push({ key: gid, isGroup: true }));
+    items.sort((a, b) => (state.lastMsg[b.key] || 0) - (state.lastMsg[a.key] || 0));
+
+    items.forEach(({ key, isGroup }) => {
         const d = document.createElement("div");
-        d.className = "contact" + (name === active ? " active-contact" : "");
+        d.className = "contact" + (key === active ? " active-contact" : "");
 
         const left = document.createElement("div");
         left.className = "contact-left";
         const nameEl = document.createElement("div");
         nameEl.className = "contact-name";
-        nameEl.textContent = name;
+        if (isGroup) {
+            const icon = document.createElement("span");
+            icon.className = "contact-group-icon";
+            icon.textContent = "👥 ";
+            nameEl.appendChild(icon);
+            nameEl.appendChild(document.createTextNode(state.groups[key].name));
+        } else {
+            nameEl.textContent = key;
+        }
         const typingEl = document.createElement("div");
         typingEl.className = "contact-typing";
-        typingEl.textContent = typingTimers[name] ? "печатает..." : "";
+        typingEl.textContent = typingTimers[key] ? "печатает..." : "";
         left.append(nameEl, typingEl);
 
         const right = document.createElement("div");
         right.className = "contact-right";
-        const statusEl = document.createElement("span");
-        statusEl.className = state.online[name] ? "status-online" : "status-offline";
-        statusEl.textContent = state.online[name] ? "● online" : "● offline";
-        right.appendChild(statusEl);
-        const unread = state.unread[name] || 0;
+        if (!isGroup) {
+            const statusEl = document.createElement("span");
+            statusEl.className = state.online[key] ? "status-online" : "status-offline";
+            statusEl.textContent = state.online[key] ? "● online" : "● offline";
+            right.appendChild(statusEl);
+        }
+        const unread = state.unread[key] || 0;
         if (unread > 0) {
             const badge = document.createElement("div");
             badge.className = "unread-badge";
@@ -544,10 +948,32 @@ function renderContacts() {
         }
 
         d.append(left, right);
-        d.onclick = () => openChat(name);
-        d.oncontextmenu = e => { e.preventDefault(); showCtxMenu(e.clientX, e.clientY, name); };
+        d.onclick = () => isGroup ? openGroupChat(key) : openChat(key);
+        d.oncontextmenu = e => { e.preventDefault(); showCtxMenu(e.clientX, e.clientY, key, isGroup); };
         contactsEl.appendChild(d);
     });
+}
+
+function sendReadReceipt(convKey) {
+    const conv = state.conversations[convKey] || [];
+    let lastId = null;
+    for (let i = conv.length - 1; i >= 0; i--) {
+        if (conv[i].from !== myName && conv[i].id) { lastId = conv[i].id; break; }
+    }
+    if (lastId && socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "read", from: myName, to: convKey, lastId }));
+    }
+}
+
+function sendGroupReadReceipt(gid) {
+    const conv = state.conversations[gid] || [];
+    let lastId = null;
+    for (let i = conv.length - 1; i >= 0; i--) {
+        if (conv[i].from !== myName && conv[i].id) { lastId = conv[i].id; break; }
+    }
+    if (lastId && socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "groupRead", from: myName, groupId: gid, lastId }));
+    }
 }
 
 function openChat(name) {
@@ -556,29 +982,63 @@ function openChat(name) {
     save();
     chatHeader.firstChild.textContent = "Чат с " + name;
     typingIndicator.textContent = "";
+    document.getElementById("callBtn").style.display = "";
+    document.getElementById("addMemberBtn").style.display = "none";
     renderContacts();
     renderMessages();
-    // mobile: switch to chat view
+    updateLastSeenLabel();
+    sendReadReceipt(name);
+    appEl.classList.add("chat-open");
+}
+
+function openGroupChat(gid) {
+    active = gid;
+    state.unread[gid] = 0;
+    save();
+    const g = state.groups[gid];
+    chatHeader.firstChild.textContent = g ? g.name : gid;
+    typingIndicator.textContent = "";
+    lastSeenLabel.textContent = "";
+    document.getElementById("callBtn").style.display = "none";
+    document.getElementById("addMemberBtn").style.display = "";
+    renderContacts();
+    renderMessages();
+    sendGroupReadReceipt(gid);
     appEl.classList.add("chat-open");
 }
 
 // ── Рендер сообщений ──────────────────────────────────────────────────────
+function isGroupActive() { return active && active.startsWith("g_"); }
+
 function renderMessages() {
     messagesEl.innerHTML = "";
     if (!active) return;
-    (state.conversations[active] || []).forEach(m => messagesEl.appendChild(renderMessageEl(m)));
+    const showSender = isGroupActive();
+    (state.conversations[active] || []).forEach(m => messagesEl.appendChild(renderMessageEl(m, showSender)));
     messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
 function appendMessage(m) {
     const peer = m.from === myName ? m.to : m.from;
     if (active === peer) {
-        messagesEl.appendChild(renderMessageEl(m));
+        messagesEl.appendChild(renderMessageEl(m, isGroupActive()));
         messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 }
 
+function appendGroupMessage(m) {
+    if (active === m.groupId) {
+        messagesEl.appendChild(renderMessageEl(m, true));
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+}
+
+function genId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
 function sendMsg(msg) {
+    if (!msg.id) msg.id = genId();
     if (!state.conversations[msg.to]) state.conversations[msg.to] = [];
     state.conversations[msg.to].push(msg);
     state.lastMsg[msg.to] = msg.ts || Date.now();
@@ -586,6 +1046,116 @@ function sendMsg(msg) {
     save();
     appendMessage(msg);
     renderContacts();
+}
+
+function sendGroupMsg(msg) {
+    if (!msg.id) msg.id = genId();
+    const gid = msg.groupId;
+    if (!state.conversations[gid]) state.conversations[gid] = [];
+    state.conversations[gid].push(msg);
+    state.lastMsg[gid] = msg.ts || Date.now();
+    socket.send(JSON.stringify(msg));
+    save();
+    appendGroupMessage(msg);
+    renderContacts();
+}
+
+// Найти сообщение по id в разговоре с собеседником
+function findMsg(convKey, id) {
+    const conv = state.conversations[convKey];
+    if (!conv) return null;
+    const idx = conv.findIndex(m => m.id === id);
+    return idx === -1 ? null : { conv, idx };
+}
+
+// ── Реакции ───────────────────────────────────────────────────────────────
+// Применить реакцию: emoji=null снимает, иначе ставит (toggle если своя)
+function applyReaction(msgId, emoji, fromNick) {
+    if (!state.reactions[msgId]) state.reactions[msgId] = {};
+    const r = state.reactions[msgId];
+    if (emoji === null) {
+        // Снять любую реакцию этого пользователя
+        for (const e in r) {
+            r[e] = r[e].filter(n => n !== fromNick);
+            if (r[e].length === 0) delete r[e];
+        }
+    } else {
+        // Удалить предыдущую реакцию этого пользователя (один emoji за раз)
+        for (const e in r) {
+            r[e] = r[e].filter(n => n !== fromNick);
+            if (r[e].length === 0) delete r[e];
+        }
+        if (!r[emoji]) r[emoji] = [];
+        r[emoji].push(fromNick);
+    }
+}
+
+function renderReactionChips(container, msgId) {
+    container.innerHTML = "";
+    const reacts = state.reactions[msgId] || {};
+    for (const [emoji, nicks] of Object.entries(reacts)) {
+        if (!nicks.length) continue;
+        const chip = document.createElement("div");
+        chip.className = "reaction-chip" + (nicks.includes(myName) ? " mine" : "");
+        chip.title = nicks.join(", ");
+        chip.innerHTML = emoji + ' <span class="rc-count">' + nicks.length + '</span>';
+        chip.onclick = () => toggleReaction(msgId, emoji);
+        container.appendChild(chip);
+    }
+}
+
+function updateReactionsInDOM(msgId) {
+    const wrap = messagesEl.querySelector(`[data-id="${msgId}"]`);
+    if (!wrap) return;
+    let row = wrap.querySelector(`[data-reactions-for="${msgId}"]`);
+    const reacts = state.reactions[msgId] || {};
+    const hasReacts = Object.values(reacts).some(a => a.length > 0);
+    if (!hasReacts) { if (row) row.remove(); return; }
+    if (!row) {
+        row = document.createElement("div");
+        row.className = "msg-reactions";
+        row.dataset.reactionsFor = msgId;
+        // вставить перед закрывающим тегом — после последнего дочернего
+        wrap.appendChild(row);
+    }
+    renderReactionChips(row, msgId);
+}
+
+function toggleReaction(msgId, emoji) {
+    // Найти сообщение чтобы понять куда слать
+    const msg = findMsgById(msgId);
+    if (!msg) return;
+    const reacts = state.reactions[msgId] || {};
+    const alreadyMine = (reacts[emoji] || []).includes(myName);
+    const newEmoji = alreadyMine ? null : emoji;
+    applyReaction(msgId, newEmoji, myName);
+    save();
+    updateReactionsInDOM(msgId);
+    // Отправить на сервер
+    if (msg.groupId) {
+        socket.send(JSON.stringify({ type: "groupReaction", from: myName, groupId: msg.groupId, msgId, emoji: newEmoji }));
+    } else {
+        const peer = msg.from === myName ? msg.to : msg.from;
+        socket.send(JSON.stringify({ type: "reaction", from: myName, to: peer, msgId, emoji: newEmoji }));
+    }
+}
+
+function findMsgById(msgId) {
+    // Ищем в активном чате сначала, потом во всех
+    const checkConv = (key) => {
+        const conv = state.conversations[key] || [];
+        const m = conv.find(x => x.id === msgId);
+        return m || null;
+    };
+    if (active) {
+        const m = checkConv(active);
+        if (m) return m;
+    }
+    for (const key of Object.keys(state.conversations)) {
+        const m = checkConv(key);
+        if (m) return m;
+    }
+    return null;
 }
 
 // ── Обработчик сообщений ──────────────────────────────────────────────────
@@ -602,7 +1172,9 @@ function mainMessageHandler(e) {
 
     if (data.type === "onlineList") {
         state.online = data.users;
+        if (data.lastSeen) Object.assign(state.lastSeen, data.lastSeen);
         save(); renderContacts();
+        updateLastSeenLabel();
         return;
     }
 
@@ -640,6 +1212,7 @@ function mainMessageHandler(e) {
         msgSound.play().catch(() => {});
         save(); renderContacts();
         appendMessage(data);
+        if (active === from) sendReadReceipt(from);
         return;
     }
 
@@ -657,7 +1230,205 @@ function mainMessageHandler(e) {
         return;
     }
 
-    if (data.type === "signal") { handleSignal(data); }
+    if (data.type === "edit") {
+        // собеседник изменил сообщение
+        const found = findMsg(data.from, data.id);
+        if (found) {
+            found.conv[found.idx].text = data.text;
+            found.conv[found.idx].edited = true;
+            save();
+            if (active === data.from) {
+                const el = messagesEl.querySelector(`[data-id="${data.id}"]`);
+                if (el) el.replaceWith(renderMessageEl(found.conv[found.idx]));
+            }
+        }
+        return;
+    }
+
+    if (data.type === "delete") {
+        // собеседник удалил сообщение
+        const found = findMsg(data.from, data.id);
+        if (found) {
+            found.conv[found.idx].deleted = true;
+            found.conv[found.idx].text = "";
+            delete found.conv[found.idx].mediaData;
+            delete found.conv[found.idx].mediaType;
+            save();
+            if (active === data.from) {
+                const el = messagesEl.querySelector(`[data-id="${data.id}"]`);
+                if (el) el.replaceWith(renderMessageEl(found.conv[found.idx]));
+            }
+        }
+        return;
+    }
+
+    if (data.type === "signal") { handleSignal(data); return; }
+
+    // ── Групповые события ────────────────────────────────────────────────
+
+    if (data.type === "groupList") {
+        // Получили список групп при логине
+        Object.assign(state.groups, data.groups);
+        save(); renderContacts();
+        return;
+    }
+
+    if (data.type === "groupCreated") {
+        state.groups[data.group.id] = data.group;
+        save(); renderContacts();
+        return;
+    }
+
+    if (data.type === "groupMemberAdded") {
+        state.groups[data.groupId] = data.group;
+        save();
+        if (active === data.groupId) chatHeader.firstChild.textContent = data.group.name;
+        renderContacts();
+        if (typeof _origGroupMemberAdded === "function") _origGroupMemberAdded(data.groupId);
+        return;
+    }
+
+    if (data.type === "addMemberError") {
+        const errEl = document.getElementById("addMemberError");
+        if (data.error === "no_user") errEl.textContent = "Пользователь не найден";
+        else if (data.error === "already_member") errEl.textContent = "Пользователь уже в группе";
+        document.getElementById("addMemberConfirmBtn").disabled = false;
+        return;
+    }
+
+    if (data.type === "groupMessage") {
+        const gid = data.groupId;
+        if (!state.groups[gid]) return;
+        if (typingTimers[gid]) { clearTimeout(typingTimers[gid]); delete typingTimers[gid]; }
+        if (!state.conversations[gid]) state.conversations[gid] = [];
+        state.conversations[gid].push(data);
+        state.lastMsg[gid] = data.ts || Date.now();
+        if (active !== gid) state.unread[gid] = (state.unread[gid] || 0) + 1;
+        msgSound.play().catch(() => {});
+        save(); renderContacts();
+        appendGroupMessage(data);
+        if (active === gid) sendGroupReadReceipt(gid);
+        return;
+    }
+
+    if (data.type === "groupEdit") {
+        const found = findMsg(data.groupId, data.id);
+        if (found) {
+            found.conv[found.idx].text = data.text;
+            found.conv[found.idx].edited = true;
+            save();
+            if (active === data.groupId) {
+                const el = messagesEl.querySelector(`[data-id="${data.id}"]`);
+                if (el) el.replaceWith(renderMessageEl(found.conv[found.idx], true));
+            }
+        }
+        return;
+    }
+
+    if (data.type === "groupDelete") {
+        const found = findMsg(data.groupId, data.id);
+        if (found) {
+            found.conv[found.idx].deleted = true;
+            found.conv[found.idx].text = "";
+            delete found.conv[found.idx].mediaData;
+            delete found.conv[found.idx].mediaType;
+            save();
+            if (active === data.groupId) {
+                const el = messagesEl.querySelector(`[data-id="${data.id}"]`);
+                if (el) el.replaceWith(renderMessageEl(found.conv[found.idx], true));
+            }
+        }
+        return;
+    }
+
+    if (data.type === "groupTyping") {
+        const gid = data.groupId;
+        if (typingTimers[gid]) clearTimeout(typingTimers[gid]);
+        typingTimers[gid] = setTimeout(() => {
+            delete typingTimers[gid];
+            renderContacts();
+            if (active === gid) typingIndicator.textContent = "";
+        }, 3000);
+        renderContacts();
+        if (active === gid) typingIndicator.textContent = " " + data.from + " печатает...";
+        return;
+    }
+
+    // ── Прочитано (ЛС) ───────────────────────────────────────────────────
+    if (data.type === "read") {
+        // Собеседник прочитал наши сообщения до data.lastId
+        state.readStatus[data.from] = data.lastId;
+        save();
+        if (active === data.from) {
+            // Обновить галочки у всех своих сообщений в DOM
+            const conv = state.conversations[data.from] || [];
+            const lastReadIdx = conv.findIndex(m => m.id === data.lastId);
+            conv.forEach((m, idx) => {
+                if (m.from !== myName || !m.id) return;
+                const tickEl = messagesEl.querySelector(`[data-ticks-for="${m.id}"]`);
+                if (!tickEl) return;
+                const isRead = lastReadIdx !== -1 && idx <= lastReadIdx;
+                tickEl.textContent = isRead ? "✓✓" : "✓";
+                tickEl.classList.toggle("read", isRead);
+            });
+        }
+        return;
+    }
+
+    // ── Прочитано (группа) ───────────────────────────────────────────────
+    if (data.type === "groupRead") {
+        // Участник прочитал сообщения группы до data.lastId
+        const gid = data.groupId;
+        const conv = state.conversations[gid] || [];
+        const lastReadIdx = conv.findIndex(m => m.id === data.lastId);
+        // Отмечаем все сообщения до lastId как прочитанные этим участником
+        for (let i = 0; i <= lastReadIdx && i < conv.length; i++) {
+            const m = conv[i];
+            if (m.from !== myName || !m.id) continue;
+            if (!state.groupReadBy[m.id]) state.groupReadBy[m.id] = [];
+            if (!state.groupReadBy[m.id].includes(data.from)) {
+                state.groupReadBy[m.id].push(data.from);
+            }
+        }
+        save();
+        if (active === gid) {
+            // Обновить галочки и строки "прочитали" в DOM
+            conv.forEach(m => {
+                if (m.from !== myName || !m.id) return;
+                const readers = state.groupReadBy[m.id] || [];
+                const tickEl = messagesEl.querySelector(`[data-ticks-for="${m.id}"]`);
+                if (tickEl) {
+                    tickEl.textContent = readers.length > 0 ? "✓✓" : "✓";
+                    tickEl.classList.toggle("read", readers.length > 0);
+                }
+                const rbEl = messagesEl.querySelector(`[data-read-by="${m.id}"]`);
+                if (readers.length > 0) {
+                    if (rbEl) {
+                        rbEl.textContent = "Прочитали: " + readers.join(", ");
+                    } else {
+                        // Добавить элемент если его ещё нет
+                        const wrap = messagesEl.querySelector(`[data-id="${m.id}"]`);
+                        if (wrap) {
+                            const rb = document.createElement("div");
+                            rb.className = "msg-read-by";
+                            rb.dataset.readBy = m.id;
+                            rb.textContent = "Прочитали: " + readers.join(", ");
+                            wrap.appendChild(rb);
+                        }
+                    }
+                }
+            });
+        }
+        return;
+    }
+
+    // ── Реакция (ЛС или группа) ──────────────────────────────────────────
+    if (data.type === "reaction" || data.type === "groupReaction") {
+        applyReaction(data.msgId, data.emoji, data.from);
+        save();
+        updateReactionsInDOM(data.msgId);
+        return;
+    }
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────
@@ -730,24 +1501,27 @@ if (savedSession) {
     connectAndAuth(savedSession.nick, savedSession.password);
 }
 
-// ── Отправка текста ───────────────────────────────────────────────────────
-document.getElementById("sendBtn").onclick = () => {
-    if (!active) return;
-    const text = document.getElementById("messageInput").value.trim();
-    if (!text) return;
-    sendMsg({ type: "message", from: myName, to: active, text, ts: Date.now() });
-    document.getElementById("messageInput").value = "";
-    myTypingActive = false;
-};
+// ── Отправка текста (keydown — Enter) ────────────────────────────────────
 document.getElementById("messageInput").addEventListener("keydown", e => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); document.getElementById("sendBtn").click(); return; }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendBtn.click(); return; }
     if (!active || !socket) return;
     if (!myTypingActive) {
         myTypingActive = true;
-        socket.send(JSON.stringify({ type: "typing", from: myName, to: active }));
+        if (isGroupActive()) {
+            socket.send(JSON.stringify({ type: "groupTyping", from: myName, groupId: active }));
+        } else {
+            socket.send(JSON.stringify({ type: "typing", from: myName, to: active }));
+        }
     }
     clearTimeout(myTypingTimer);
     myTypingTimer = setTimeout(() => { myTypingActive = false; }, 2500);
+});
+// Сброс редактирования при нажатии Escape в поле ввода
+document.getElementById("messageInput").addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+        if (editingMsg) document.getElementById("editCancelBtn").click();
+        else if (replyingTo) closeReplyBar();
+    }
 });
 
 // ── Файл ──────────────────────────────────────────────────────────────────
@@ -758,11 +1532,19 @@ fileInput.onchange = () => {
     fileInput.value = "";
     if (file.size > 10 * 1024 * 1024) { alert("Файл слишком большой (макс. 10 МБ)"); return; }
     const reader = new FileReader();
-    reader.onload = ev => sendMsg({
-        type: "message", from: myName, to: active, text: "",
-        mediaType: file.type, mediaData: ev.target.result.split(",")[1],
-        fileName: file.name, ts: Date.now()
-    });
+    reader.onload = ev => {
+        const replyTo = replyingTo ? { ...replyingTo } : undefined;
+        if (isGroupActive()) {
+            sendGroupMsg({ type: "groupMessage", from: myName, groupId: active, text: "",
+                mediaType: file.type, mediaData: ev.target.result.split(",")[1],
+                fileName: file.name, ts: Date.now(), replyTo });
+        } else {
+            sendMsg({ type: "message", from: myName, to: active, text: "",
+                mediaType: file.type, mediaData: ev.target.result.split(",")[1],
+                fileName: file.name, ts: Date.now(), replyTo });
+        }
+        closeReplyBar();
+    };
     reader.readAsDataURL(file);
 };
 
@@ -781,11 +1563,20 @@ voiceBtn.onclick = async () => {
         voiceBtn.classList.remove("recording");
         const blob = new Blob(voiceChunks, { type: mediaRecorder.mimeType || "audio/webm" });
         const reader = new FileReader();
-        reader.onload = ev => sendMsg({
-            type: "message", from: myName, to: active, text: "",
-            mediaType: blob.type, mediaData: ev.target.result.split(",")[1],
-            fileName: "voice.webm", ts: Date.now()
-        });
+        reader.onload = ev => {
+            const activeAtRecord = active;
+            const replyTo = replyingTo ? { ...replyingTo } : undefined;
+            if (activeAtRecord && activeAtRecord.startsWith("g_")) {
+                sendGroupMsg({ type: "groupMessage", from: myName, groupId: activeAtRecord, text: "",
+                    mediaType: blob.type, mediaData: ev.target.result.split(",")[1],
+                    fileName: "voice.webm", ts: Date.now(), replyTo });
+            } else {
+                sendMsg({ type: "message", from: myName, to: activeAtRecord, text: "",
+                    mediaType: blob.type, mediaData: ev.target.result.split(",")[1],
+                    fileName: "voice.webm", ts: Date.now(), replyTo });
+            }
+            closeReplyBar();
+        };
         reader.readAsDataURL(blob);
     };
     mediaRecorder.start();
@@ -808,13 +1599,17 @@ document.getElementById("backBtn").onclick = () => {
 // ── Контекстное меню ──────────────────────────────────────────────────────
 const ctxMenu = document.getElementById("ctxMenu");
 let ctxTarget = null;
-function showCtxMenu(x, y, name) {
+let ctxIsGroup = false;
+function showCtxMenu(x, y, name, isGroup) {
     ctxTarget = name;
-    // не вылезать за край экрана
+    ctxIsGroup = !!isGroup;
     const mw = 170, mh = 80;
     ctxMenu.style.left = Math.min(x, window.innerWidth - mw - 8) + "px";
     ctxMenu.style.top  = Math.min(y, window.innerHeight - mh - 8) + "px";
     ctxMenu.style.display = "block";
+    // Показываем нужные пункты
+    document.getElementById("ctxDelete").style.display = isGroup ? "none" : "";
+    document.getElementById("ctxLeaveGroup").style.display = isGroup ? "" : "none";
 }
 function hideCtxMenu() { ctxMenu.style.display = "none"; ctxTarget = null; }
 document.addEventListener("click", hideCtxMenu);
@@ -842,6 +1637,168 @@ document.getElementById("ctxDelete").onclick = () => {
     }
     save(); renderContacts();
     hideCtxMenu();
+};
+document.getElementById("ctxLeaveGroup").onclick = () => {
+    if (!ctxTarget) return;
+    delete state.groups[ctxTarget];
+    delete state.conversations[ctxTarget];
+    delete state.unread[ctxTarget];
+    delete state.lastMsg[ctxTarget];
+    if (active === ctxTarget) {
+        active = null;
+        chatHeader.firstChild.textContent = "Выберите чат";
+        typingIndicator.textContent = "";
+        document.getElementById("callBtn").style.display = "";
+        renderMessages();
+        appEl.classList.remove("chat-open");
+    }
+    save(); renderContacts();
+    hideCtxMenu();
+};
+
+// ── Меню сообщения ────────────────────────────────────────────────────────
+const msgCtxMenu = document.getElementById("msgCtxMenu");
+let msgCtxTarget = null; // объект сообщения
+
+function showMsgCtxMenu(x, y, msg) {
+    msgCtxTarget = msg;
+    const isMine = msg.from === myName;
+    document.getElementById("msgCtxEdit").style.display = isMine ? "" : "none";
+    document.getElementById("msgCtxDelete").style.display = isMine ? "" : "none";
+    const mw = 230, mh = 120;
+    msgCtxMenu.style.left = Math.min(x, window.innerWidth - mw - 8) + "px";
+    msgCtxMenu.style.top  = Math.min(y, window.innerHeight - mh - 8) + "px";
+    msgCtxMenu.style.display = "block";
+}
+function hideMsgCtxMenu() { msgCtxMenu.style.display = "none"; msgCtxTarget = null; }
+document.addEventListener("click", hideMsgCtxMenu);
+
+// Клик по эмодзи в пикере
+document.getElementById("reactionPicker").addEventListener("click", e => {
+    const btn = e.target.closest("button[data-emoji]");
+    if (!btn || !msgCtxTarget) return;
+    e.stopPropagation();
+    toggleReaction(msgCtxTarget.id, btn.dataset.emoji);
+    hideMsgCtxMenu();
+});
+
+const editBar     = document.getElementById("editBar");
+const editBarText = document.getElementById("editBarText");
+const replyBar    = document.getElementById("replyBar");
+const msgInput    = document.getElementById("messageInput");
+const sendBtn     = document.getElementById("sendBtn");
+
+function openReplyBar(msg) {
+    replyingTo = { id: msg.id, from: msg.from, text: msg.text || "", mediaType: msg.mediaType };
+    document.getElementById("replyBarAuthor").textContent = msg.from;
+    document.getElementById("replyBarText").textContent = msg.text || (msg.mediaType ? "📎 Вложение" : "");
+    replyBar.style.display = "flex";
+    // Если открыт editBar — закрыть его
+    editingMsg = null;
+    editBar.style.display = "none";
+    msgInput.value = "";
+    msgInput.focus();
+}
+function closeReplyBar() {
+    replyingTo = null;
+    replyBar.style.display = "none";
+}
+document.getElementById("replyCancelBtn").onclick = closeReplyBar;
+
+document.getElementById("msgCtxReply").onclick = () => {
+    if (!msgCtxTarget) return;
+    const msg = msgCtxTarget;
+    hideMsgCtxMenu();
+    openReplyBar(msg);
+};
+
+document.getElementById("msgCtxEdit").onclick = () => {
+    if (!msgCtxTarget) return;
+    const msg = msgCtxTarget;
+    hideMsgCtxMenu();
+    // показываем edit-bar
+    editingMsg = msg;
+    editBarText.textContent = "Редактировать: " + (msg.text || "(медиа)");
+    editBar.style.display = "flex";
+    msgInput.value = msg.text || "";
+    msgInput.focus();
+};
+
+document.getElementById("msgCtxDelete").onclick = () => {
+    if (!msgCtxTarget) return;
+    const msg = msgCtxTarget;
+    hideMsgCtxMenu();
+    const convKey = msg.to === myName ? msg.from : msg.to;
+    const found = findMsg(convKey, msg.id);
+    if (!found) return;
+    // локально
+    found.conv[found.idx].deleted = true;
+    found.conv[found.idx].text = "";
+    delete found.conv[found.idx].mediaData;
+    delete found.conv[found.idx].mediaType;
+    save();
+    // в DOM
+    const isGrpMsg = !!msg.groupId;
+    const el = messagesEl.querySelector(`[data-id="${msg.id}"]`);
+    if (el) el.replaceWith(renderMessageEl(found.conv[found.idx], isGrpMsg));
+    // отправить
+    if (isGrpMsg) {
+        socket.send(JSON.stringify({ type: "groupDelete", from: myName, groupId: msg.groupId, id: msg.id }));
+    } else {
+        const to = msg.to === myName ? msg.from : msg.to;
+        socket.send(JSON.stringify({ type: "delete", from: myName, to, id: msg.id }));
+    }
+};
+
+document.getElementById("editCancelBtn").onclick = () => {
+    editingMsg = null;
+    editBar.style.display = "none";
+    msgInput.value = "";
+};
+
+// Перехватываем sendBtn когда идёт редактирование
+const origSendHandler = () => {
+    if (!active) return;
+    const text = msgInput.value.trim();
+    if (!text) return;
+    const replyTo = replyingTo ? { ...replyingTo } : undefined;
+    if (isGroupActive()) {
+        sendGroupMsg({ type: "groupMessage", from: myName, groupId: active, text, ts: Date.now(), replyTo });
+    } else {
+        sendMsg({ type: "message", from: myName, to: active, text, ts: Date.now(), replyTo });
+    }
+    msgInput.value = "";
+    myTypingActive = false;
+    closeReplyBar();
+};
+
+sendBtn.onclick = () => {
+    if (editingMsg) {
+        const text = msgInput.value.trim();
+        if (!text) return;
+        const msg = editingMsg;
+        const isGrpMsg = !!msg.groupId;
+        const convKey = isGrpMsg ? msg.groupId : (msg.to === myName ? msg.from : msg.to);
+        const found = findMsg(convKey, msg.id);
+        if (found) {
+            found.conv[found.idx].text = text;
+            found.conv[found.idx].edited = true;
+            save();
+            const el = messagesEl.querySelector(`[data-id="${msg.id}"]`);
+            if (el) el.replaceWith(renderMessageEl(found.conv[found.idx], isGrpMsg));
+        }
+        if (isGrpMsg) {
+            socket.send(JSON.stringify({ type: "groupEdit", from: myName, groupId: msg.groupId, id: msg.id, text }));
+        } else {
+            const to = msg.to === myName ? msg.from : msg.to;
+            socket.send(JSON.stringify({ type: "edit", from: myName, to, id: msg.id, text }));
+        }
+        editingMsg = null;
+        editBar.style.display = "none";
+        msgInput.value = "";
+    } else {
+        origSendHandler();
+    }
 };
 
 // ── Проверить ник на сервере, затем вызвать колбэк(exists) ───────────────
@@ -972,6 +1929,186 @@ document.getElementById("rejectCall").onclick = () => {
 
 document.getElementById("callBtn").onclick = startCall;
 document.getElementById("endCall").onclick = endActiveCall;
+
+// ── Создание группы ───────────────────────────────────────────────────────
+const groupModal = document.getElementById("groupModal");
+const groupNameInput = document.getElementById("groupNameInput");
+const groupMemberInput = document.getElementById("groupMemberInput");
+const groupMembersList = document.getElementById("groupMembersList");
+const groupModalError = document.getElementById("groupModalError");
+let groupModalMembers = []; // ники участников (без себя)
+
+function openGroupModal() {
+    groupModalMembers = [];
+    groupNameInput.value = "";
+    groupMemberInput.value = "";
+    groupModalError.textContent = "";
+    renderGroupMembers();
+    groupModal.style.display = "flex";
+    groupNameInput.focus();
+}
+
+function closeGroupModal() {
+    groupModal.style.display = "none";
+}
+
+function renderGroupMembers() {
+    groupMembersList.innerHTML = "";
+    groupModalMembers.forEach(nick => {
+        const row = document.createElement("div");
+        row.className = "group-member-row";
+        row.textContent = nick;
+        const rm = document.createElement("button");
+        rm.className = "remove-member";
+        rm.textContent = "✕";
+        rm.onclick = () => {
+            groupModalMembers = groupModalMembers.filter(n => n !== nick);
+            renderGroupMembers();
+        };
+        row.appendChild(rm);
+        groupMembersList.appendChild(row);
+    });
+}
+
+function doAddGroupMember() {
+    const nick = groupMemberInput.value.trim();
+    if (!nick) return;
+    if (nick === myName) { groupModalError.textContent = "Нельзя добавить себя"; return; }
+    if (groupModalMembers.includes(nick)) { groupModalError.textContent = "Уже добавлен"; return; }
+    groupModalError.textContent = "";
+    document.getElementById("groupAddMemberBtn").disabled = true;
+    checkNick(nick, exists => {
+        document.getElementById("groupAddMemberBtn").disabled = false;
+        if (!exists) { groupModalError.textContent = "Пользователь «" + nick + "» не найден"; return; }
+        groupModalMembers.push(nick);
+        groupMemberInput.value = "";
+        groupModalError.textContent = "";
+        renderGroupMembers();
+    });
+}
+
+document.getElementById("newGroupBtn").onclick = openGroupModal;
+document.getElementById("groupCancelBtn").onclick = closeGroupModal;
+groupModal.addEventListener("click", e => { if (e.target === groupModal) closeGroupModal(); });
+document.getElementById("groupAddMemberBtn").onclick = doAddGroupMember;
+groupMemberInput.addEventListener("keydown", e => { if (e.key === "Enter") doAddGroupMember(); });
+
+document.getElementById("groupCreateBtn").onclick = () => {
+    const name = groupNameInput.value.trim();
+    if (!name) { groupModalError.textContent = "Введите название группы"; return; }
+    if (name.length > 64) { groupModalError.textContent = "Название слишком длинное"; return; }
+    if (groupModalMembers.length < 1) { groupModalError.textContent = "Добавьте хотя бы одного участника"; return; }
+    socket.send(JSON.stringify({ type: "createGroup", name, members: groupModalMembers }));
+    closeGroupModal();
+};
+
+// ── Пересылка сообщений ───────────────────────────────────────────────────
+const forwardModal = document.getElementById("forwardModal");
+const forwardSearch = document.getElementById("forwardSearch");
+const forwardListEl = document.getElementById("forwardList");
+let forwardingMsg = null;
+
+function openForwardModal(msg) {
+    forwardingMsg = msg;
+    forwardSearch.value = "";
+    renderForwardList("");
+    forwardModal.style.display = "flex";
+    forwardSearch.focus();
+}
+function closeForwardModal() { forwardModal.style.display = "none"; forwardingMsg = null; }
+
+function renderForwardList(query) {
+    forwardListEl.innerHTML = "";
+    const q = query.toLowerCase();
+    // Личные контакты
+    state.contacts.forEach(name => {
+        if (q && !name.toLowerCase().includes(q)) return;
+        const d = document.createElement("div");
+        d.className = "forward-item";
+        d.innerHTML = '<span style="color:var(--text2);font-size:15px">👤</span> ' + name;
+        d.onclick = () => doForward(name, false);
+        forwardListEl.appendChild(d);
+    });
+    // Группы
+    Object.values(state.groups).forEach(g => {
+        if (q && !g.name.toLowerCase().includes(q)) return;
+        const d = document.createElement("div");
+        d.className = "forward-item";
+        d.innerHTML = '<span style="color:var(--text2);font-size:15px">👥</span> ' + g.name;
+        d.onclick = () => doForward(g.id, true);
+        forwardListEl.appendChild(d);
+    });
+}
+
+function doForward(target, isGroup) {
+    if (!forwardingMsg) return;
+    const m = forwardingMsg;
+    const fwdFrom = m.forwardedFrom || m.from; // цепочка: сохраняем оригинального отправителя
+    const base = {
+        forwardedFrom: fwdFrom,
+        text: m.text || "",
+        ts: Date.now(),
+    };
+    // Копируем медиа если есть
+    if (m.mediaType) { base.mediaType = m.mediaType; base.mediaData = m.mediaData; base.fileName = m.fileName; }
+
+    if (isGroup) {
+        sendGroupMsg(Object.assign({ type: "groupMessage", from: myName, groupId: target }, base));
+    } else {
+        sendMsg(Object.assign({ type: "message", from: myName, to: target }, base));
+    }
+    closeForwardModal();
+    // Открыть чат куда переслали
+    if (isGroup) openGroupChat(target); else openChat(target);
+}
+
+document.getElementById("forwardCancelBtn").onclick = closeForwardModal;
+forwardModal.addEventListener("click", e => { if (e.target === forwardModal) closeForwardModal(); });
+forwardSearch.addEventListener("input", () => renderForwardList(forwardSearch.value));
+
+// Кнопка «Переслать» в меню сообщения
+document.getElementById("msgCtxForward").onclick = () => {
+    if (!msgCtxTarget) return;
+    const msg = msgCtxTarget;
+    hideMsgCtxMenu();
+    openForwardModal(msg);
+};
+
+// ── Добавление участника в группу ─────────────────────────────────────────
+const addMemberModal = document.getElementById("addMemberModal");
+const addMemberNickInput = document.getElementById("addMemberNickInput");
+const addMemberError = document.getElementById("addMemberError");
+
+function openAddMemberModal() {
+    addMemberNickInput.value = "";
+    addMemberError.textContent = "";
+    document.getElementById("addMemberConfirmBtn").disabled = false;
+    addMemberModal.style.display = "flex";
+    addMemberNickInput.focus();
+}
+function closeAddMemberModal() { addMemberModal.style.display = "none"; }
+
+document.getElementById("addMemberBtn").onclick = openAddMemberModal;
+document.getElementById("addMemberCancelBtn").onclick = closeAddMemberModal;
+addMemberModal.addEventListener("click", e => { if (e.target === addMemberModal) closeAddMemberModal(); });
+
+function doAddMember() {
+    const nick = addMemberNickInput.value.trim();
+    if (!nick) return;
+    addMemberError.textContent = "";
+    document.getElementById("addMemberConfirmBtn").disabled = true;
+    socket.send(JSON.stringify({ type: "addGroupMember", groupId: active, nick }));
+    // Ответ придёт через groupMemberAdded или addMemberError
+    // Закрываем модал оптимистично только при успехе (обрабатывается в handler)
+}
+
+document.getElementById("addMemberConfirmBtn").onclick = doAddMember;
+addMemberNickInput.addEventListener("keydown", e => { if (e.key === "Enter") doAddMember(); });
+
+// Закрыть модал при успешном добавлении — патчим обработчик
+const _origGroupMemberAdded = (gid) => {
+    if (addMemberModal.style.display === "flex" && active === gid) closeAddMemberModal();
+};
 
 // ── Инициализация ─────────────────────────────────────────────────────────
 renderContacts();
