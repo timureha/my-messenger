@@ -1210,6 +1210,8 @@ function mainMessageHandler(e) {
         state.lastMsg[from] = data.ts || Date.now();
         if (active !== from) state.unread[from] = (state.unread[from] || 0) + 1;
         msgSound.play().catch(() => {});
+        const notifBody = data.text ? data.text.slice(0, 100) : '📎 Вложение';
+        showNotification(from, notifBody, from);
         save(); renderContacts();
         appendMessage(data);
         if (active === from) sendReadReceipt(from);
@@ -1305,6 +1307,9 @@ function mainMessageHandler(e) {
         state.lastMsg[gid] = data.ts || Date.now();
         if (active !== gid) state.unread[gid] = (state.unread[gid] || 0) + 1;
         msgSound.play().catch(() => {});
+        const grpName = state.groups[gid] ? state.groups[gid].name : gid;
+        const grpBody = data.from + ': ' + (data.text ? data.text.slice(0, 100) : '📎 Вложение');
+        showNotification(grpName, grpBody, gid);
         save(); renderContacts();
         appendGroupMessage(data);
         if (active === gid) sendGroupReadReceipt(gid);
@@ -1455,6 +1460,7 @@ function connectAndAuth(nick, password) {
             appDiv.style.display = "grid";
             socket.onmessage = mainMessageHandler;
             renderContacts();
+            setupNotifications();
         } else {
             authError.textContent = data.error || "Ошибка";
             authSubmit.disabled = false;
@@ -2109,6 +2115,66 @@ addMemberNickInput.addEventListener("keydown", e => { if (e.key === "Enter") doA
 const _origGroupMemberAdded = (gid) => {
     if (addMemberModal.style.display === "flex" && active === gid) closeAddMemberModal();
 };
+
+// ── Уведомления (Notification API + Web Push) ─────────────────────────────
+let swRegistration = null;
+
+// Показать браузерное уведомление (когда вкладка не в фокусе)
+function showNotification(title, body, tag) {
+    if (document.visibilityState === 'visible') return; // вкладка активна — не дублируем
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    const opts = { body, tag, icon: '/icon-192.png', badge: '/icon-192.png', renotify: true, vibrate: [200, 100, 200] };
+    if (swRegistration) {
+        swRegistration.showNotification(title, opts);
+    } else {
+        new Notification(title, opts);
+    }
+}
+
+// Запросить разрешение и подписать на Web Push
+async function setupNotifications() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+        await Notification.requestPermission();
+    }
+    if (Notification.permission !== 'granted') return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    try {
+        // Регистрируем SW
+        swRegistration = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+
+        // Получаем VAPID public key с сервера
+        const vapidResp = await fetch('/vapid-public-key');
+        const vapidKey  = await vapidResp.text();
+
+        // Проверяем существующую подписку
+        let sub = await swRegistration.pushManager.getSubscription();
+        if (!sub) {
+            // Подписываемся
+            const appKey = Uint8Array.from(atob(vapidKey.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+            sub = await swRegistration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: appKey
+            });
+        }
+
+        // Отправляем подписку на сервер
+        await fetch('/push-subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nick: myName, subscription: sub.toJSON() })
+        });
+    } catch (e) {
+        console.warn('Push setup failed:', e);
+    }
+}
+
+// Вызываем после успешного входа — инициализируем уведомления
+// (патчим socket.onmessage чтобы вызвать setupNotifications после authResult)
+const _origConnectAndAuth = connectAndAuth;
 
 // ── Инициализация ─────────────────────────────────────────────────────────
 renderContacts();
