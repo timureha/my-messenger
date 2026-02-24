@@ -1,377 +1,291 @@
+'use strict';
 const WebSocket = require('ws');
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const http      = require('http');
+const fs        = require('fs');
+const path      = require('path');
+const crypto    = require('crypto');
+const { MongoClient } = require('mongodb');
+const webpush   = require('web-push');
 
-const USERS_FILE  = path.join(__dirname, 'users.json');
-const QUEUE_FILE  = path.join(__dirname, 'queue.json');
-const GROUPS_FILE = path.join(__dirname, 'groups.json');
+// ── VAPID (Web Push) ────────────────────────────────────────────────────────
+let vapidPublicKey  = process.env.VAPID_PUBLIC_KEY;
+let vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+if (!vapidPublicKey || !vapidPrivateKey) {
+    const keys = webpush.generateVAPIDKeys();
+    vapidPublicKey  = keys.publicKey;
+    vapidPrivateKey = keys.privateKey;
+    console.warn('⚠️  VAPID keys not in env — generated for this session only.');
+    console.warn('Add to Render environment variables:');
+    console.warn('VAPID_PUBLIC_KEY=' + vapidPublicKey);
+    console.warn('VAPID_PRIVATE_KEY=' + vapidPrivateKey);
+}
+webpush.setVapidDetails('mailto:admin@messenger.app', vapidPublicKey, vapidPrivateKey);
 
-function loadUsers() {
-    try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); }
-    catch { return {}; }
+// ── MongoDB ─────────────────────────────────────────────────────────────────
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/messenger';
+let db;
+
+async function connectDB() {
+    const client = new MongoClient(MONGO_URI);
+    await client.connect();
+    db = client.db();
+    await db.collection('users').createIndex({ nick: 1 }, { unique: true });
+    await db.collection('queue').createIndex({ recipient: 1 });
+    await db.collection('queue').createIndex({ ts: 1 });
+    await db.collection('groups').createIndex({ id: 1 }, { unique: true });
+    await db.collection('groups').createIndex({ members: 1 });
+    await db.collection('pushSubs').createIndex({ nick: 1 });
+    console.log('MongoDB connected');
 }
 
-function saveUsers(users) {
-    const tmp = USERS_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(users, null, 2));
-    fs.renameSync(tmp, USERS_FILE);
-}
-
-function loadQueue() {
-    try { return JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf8')); }
-    catch { return {}; }
-}
-
-function saveQueue(queue) {
-    const tmp = QUEUE_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(queue));
-    fs.renameSync(tmp, QUEUE_FILE);
-}
-
-function enqueue(nick, msg) {
-    const queue = loadQueue();
-    if (!queue[nick]) queue[nick] = [];
-    queue[nick].push(msg);
-    saveQueue(queue);
-}
-
-function flushQueue(nick) {
-    const queue = loadQueue();
-    const msgs = queue[nick] || [];
-    if (msgs.length) {
-        delete queue[nick];
-        saveQueue(queue);
-    }
-    return msgs;
-}
-
-function loadGroups() {
-    try { return JSON.parse(fs.readFileSync(GROUPS_FILE, 'utf8')); }
-    catch { return {}; }
-}
-
-function saveGroups(groups) {
-    const tmp = GROUPS_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(groups, null, 2));
-    fs.renameSync(tmp, GROUPS_FILE);
-}
-
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function hashPassword(password, saltHex) {
     return crypto.pbkdf2Sync(password, Buffer.from(saltHex, 'hex'), 100000, 64, 'sha512').toString('hex');
 }
 
-const server = http.createServer((req, res) => {
-    let filePath = path.join(__dirname, req.url === "/" ? "index.html" : req.url);
-    fs.readFile(filePath, (err, content) => {
-        if (err) { res.writeHead(404); res.end("Not found"); }
-        else { res.writeHead(200); res.end(content); }
-    });
-});
+async function enqueue(nick, msg) {
+    await db.collection('queue').insertOne({ recipient: nick, msg, ts: Date.now() });
+}
 
-const wss = new WebSocket.Server({ server, maxPayload: 20 * 1024 * 1024 });
+async function flushQueue(nick) {
+    const docs = await db.collection('queue').find({ recipient: nick }).sort({ ts: 1 }).toArray();
+    if (docs.length) await db.collection('queue').deleteMany({ recipient: nick });
+    return docs.map(d => d.msg);
+}
 
-let clients = {};
-let lastSeen = {}; // nick -> timestamp
-
-function broadcastOnline() {
-    const users = {};
-    for (const name in clients) users[name] = true;
-    for (const name in clients) {
-        clients[name].send(JSON.stringify({ type: "onlineList", users, lastSeen }));
+async function sendPush(nick, payload) {
+    const subs = await db.collection('pushSubs').find({ nick }).toArray();
+    for (const sub of subs) {
+        try {
+            await webpush.sendNotification(sub.subscription, JSON.stringify(payload));
+        } catch (err) {
+            if (err.statusCode === 410 || err.statusCode === 404) {
+                await db.collection('pushSubs').deleteOne({ _id: sub._id });
+            }
+        }
     }
 }
 
-// Отправить сообщение всем участникам группы кроме отправителя
-function deliverToGroup(groupId, msg, senderNick) {
-    const groups = loadGroups();
-    const group = groups[groupId];
+async function deliverToGroup(groupId, msg, senderNick) {
+    const group = await db.collection('groups').findOne({ id: groupId });
     if (!group) return;
     for (const member of group.members) {
         if (member === senderNick) continue;
         if (clients[member]) {
             clients[member].send(JSON.stringify(msg));
         } else {
-            enqueue(member, msg);
+            await enqueue(member, msg);
+            if (msg.type === 'groupMessage') {
+                const preview = msg.text ? msg.text.slice(0, 80) : '📎 Вложение';
+                await sendPush(member, { title: group.name, body: senderNick + ': ' + preview, tag: groupId });
+            }
         }
     }
+}
+
+// ── HTTP ─────────────────────────────────────────────────────────────────────
+const server = http.createServer((req, res) => {
+    // VAPID public key для SW
+    if (req.url === '/vapid-public-key') {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end(vapidPublicKey);
+        return;
+    }
+    // Сохранение push-подписки
+    if (req.url === '/push-subscribe' && req.method === 'POST') {
+        let body = '';
+        req.on('data', c => body += c);
+        req.on('end', async () => {
+            try {
+                const { nick, subscription } = JSON.parse(body);
+                if (!nick || !subscription) { res.writeHead(400); res.end(); return; }
+                await db.collection('pushSubs').updateOne(
+                    { nick, 'subscription.endpoint': subscription.endpoint },
+                    { $set: { nick, subscription, ts: Date.now() } },
+                    { upsert: true }
+                );
+                res.writeHead(200); res.end('ok');
+            } catch (e) { console.error(e); res.writeHead(500); res.end(); }
+        });
+        return;
+    }
+    // Статика
+    let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url.split('?')[0]);
+    if (!filePath.startsWith(__dirname)) { res.writeHead(403); res.end(); return; }
+    fs.readFile(filePath, (err, content) => {
+        if (err) { res.writeHead(404); res.end('Not found'); return; }
+        const ext = path.extname(filePath);
+        const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
+                       '.json': 'application/json', '.png': 'image/png', '.mp3': 'audio/mpeg',
+                       '.webp': 'image/webp' };
+        res.writeHead(200, { 'Content-Type': mime[ext] || 'application/octet-stream' });
+        res.end(content);
+    });
+});
+
+// ── WebSocket ────────────────────────────────────────────────────────────────
+const wss = new WebSocket.Server({ server, maxPayload: 20 * 1024 * 1024 });
+let clients  = {};
+let lastSeen = {};
+
+function broadcastOnline() {
+    const users = {};
+    for (const n in clients) users[n] = true;
+    const msg = JSON.stringify({ type: 'onlineList', users, lastSeen });
+    for (const n in clients) clients[n].send(msg);
 }
 
 wss.on('connection', ws => {
     ws.authenticated = false;
 
-    ws.on('message', message => {
+    ws.on('message', async raw => {
         let data;
-        try { data = JSON.parse(message); } catch { return; }
+        try { data = JSON.parse(raw); } catch { return; }
 
-        // ── Регистрация ──────────────────────────────────────────────────
-        if (data.type === "register") {
+        // ── register ───────────────────────────────────────────────────────
+        if (data.type === 'register') {
             const nick = (data.nick || '').trim();
-            const password = data.password || '';
-
+            const pwd  = data.password || '';
             if (!/^[a-zA-Z0-9_]{1,32}$/.test(nick)) {
-                ws.send(JSON.stringify({ type: "authResult", success: false, error: "Invalid nick (1–32 chars, a-z A-Z 0-9 _)" }));
-                return;
+                ws.send(JSON.stringify({ type: 'authResult', success: false, error: 'Ник: 1–32 символа, только a-z A-Z 0-9 _' })); return;
             }
-            if (password.length < 6 || password.length > 128) {
-                ws.send(JSON.stringify({ type: "authResult", success: false, error: "Password must be 6–128 characters" }));
-                return;
+            if (pwd.length < 6 || pwd.length > 128) {
+                ws.send(JSON.stringify({ type: 'authResult', success: false, error: 'Пароль: 6–128 символов' })); return;
             }
-
-            const users = loadUsers();
-            if (users[nick]) {
-                ws.send(JSON.stringify({ type: "authResult", success: false, error: "Nick already taken" }));
-                return;
+            try {
+                const salt = crypto.randomBytes(32).toString('hex');
+                await db.collection('users').insertOne({ nick, hash: hashPassword(pwd, salt), salt });
+            } catch (e) {
+                if (e.code === 11000) {
+                    ws.send(JSON.stringify({ type: 'authResult', success: false, error: 'Ник уже занят' })); return;
+                }
+                throw e;
             }
-
-            const saltHex = crypto.randomBytes(32).toString('hex');
-            users[nick] = { hash: hashPassword(password, saltHex), salt: saltHex };
-            saveUsers(users);
-
-            ws.authenticated = true;
-            ws.name = nick;
-            clients[nick] = ws;
+            ws.authenticated = true; ws.name = nick; clients[nick] = ws;
             broadcastOnline();
-            ws.send(JSON.stringify({ type: "authResult", success: true, nick }));
+            ws.send(JSON.stringify({ type: 'authResult', success: true, nick }));
             return;
         }
 
-        // ── Вход ─────────────────────────────────────────────────────────
-        if (data.type === "login") {
+        // ── login ──────────────────────────────────────────────────────────
+        if (data.type === 'login') {
             const nick = (data.nick || '').trim();
-            const password = data.password || '';
-
-            const users = loadUsers();
-            if (!users[nick]) {
-                ws.send(JSON.stringify({ type: "authResult", success: false, error: "Unknown nick" }));
-                return;
+            const pwd  = data.password || '';
+            const user = await db.collection('users').findOne({ nick });
+            if (!user || hashPassword(pwd, user.salt) !== user.hash) {
+                ws.send(JSON.stringify({ type: 'authResult', success: false, error: !user ? 'Неизвестный ник' : 'Неверный пароль' })); return;
             }
-            if (hashPassword(password, users[nick].salt) !== users[nick].hash) {
-                ws.send(JSON.stringify({ type: "authResult", success: false, error: "Wrong password" }));
-                return;
-            }
-
             if (clients[nick] && clients[nick] !== ws) {
-                try { clients[nick].send(JSON.stringify({ type: "kicked" })); clients[nick].close(); } catch {}
+                try { clients[nick].send(JSON.stringify({ type: 'kicked' })); clients[nick].close(); } catch {}
             }
-
-            ws.authenticated = true;
-            ws.name = nick;
-            clients[nick] = ws;
+            ws.authenticated = true; ws.name = nick; clients[nick] = ws;
             broadcastOnline();
-            ws.send(JSON.stringify({ type: "authResult", success: true, nick }));
-
-            // Отдать накопленную очередь
-            const pending = flushQueue(nick);
-            for (const msg of pending) {
-                ws.send(JSON.stringify(msg));
-            }
-
-            // Отдать список групп, в которых состоит пользователь
-            const groups = loadGroups();
+            ws.send(JSON.stringify({ type: 'authResult', success: true, nick }));
+            const pending = await flushQueue(nick);
+            for (const m of pending) ws.send(JSON.stringify(m));
             const myGroups = {};
-            for (const [id, g] of Object.entries(groups)) {
-                if (g.members.includes(nick)) myGroups[id] = g;
-            }
-            if (Object.keys(myGroups).length > 0) {
-                ws.send(JSON.stringify({ type: "groupList", groups: myGroups }));
-            }
+            const groups = await db.collection('groups').find({ members: nick }).toArray();
+            for (const g of groups) { delete g._id; myGroups[g.id] = g; }
+            if (Object.keys(myGroups).length)
+                ws.send(JSON.stringify({ type: 'groupList', groups: myGroups }));
             return;
         }
 
         if (!ws.authenticated) return;
 
-        // ── Проверка существования ника ──────────────────────────────────
-        if (data.type === "checkNick") {
-            const users = loadUsers();
-            ws.send(JSON.stringify({
-                type: "nickResult",
-                nick: data.nick,
-                exists: !!(users[(data.nick || '').trim()])
-            }));
+        // ── checkNick ──────────────────────────────────────────────────────
+        if (data.type === 'checkNick') {
+            const u = await db.collection('users').findOne({ nick: (data.nick || '').trim() }, { projection: { _id: 1 } });
+            ws.send(JSON.stringify({ type: 'nickResult', nick: data.nick, exists: !!u }));
             return;
         }
 
-        // ── Сообщение ────────────────────────────────────────────────────
-        if (data.type === "message") {
-            const users = loadUsers();
-            if (!users[data.to]) {
-                ws.send(JSON.stringify({ type: "deliveryError", to: data.to, error: "no_user" }));
-                return;
-            }
+        // ── message ────────────────────────────────────────────────────────
+        if (data.type === 'message') {
+            const u = await db.collection('users').findOne({ nick: data.to }, { projection: { _id: 1 } });
+            if (!u) { ws.send(JSON.stringify({ type: 'deliveryError', to: data.to, error: 'no_user' })); return; }
             if (clients[data.to]) {
                 clients[data.to].send(JSON.stringify(data));
             } else {
-                enqueue(data.to, data);
+                await enqueue(data.to, data);
+                const preview = data.text ? data.text.slice(0, 80) : '📎 Вложение';
+                await sendPush(data.to, { title: ws.name, body: preview, tag: ws.name });
             }
+            return;
         }
 
-        // ── Редактировать сообщение ──────────────────────────────────────
-        if (data.type === "edit") {
-            if (clients[data.to]) {
-                clients[data.to].send(JSON.stringify(data));
-            } else {
-                enqueue(data.to, data);
-            }
-        }
-
-        // ── Удалить сообщение ────────────────────────────────────────────
-        if (data.type === "delete") {
-            if (clients[data.to]) {
-                clients[data.to].send(JSON.stringify(data));
-            } else {
-                enqueue(data.to, data);
-            }
-        }
-
-        // ── Сигнал (WebRTC) ──────────────────────────────────────────────
-        if (data.type === "signal") {
+        // ── edit / delete / read / reaction ────────────────────────────────
+        if (data.type === 'edit' || data.type === 'delete') {
             if (clients[data.to]) clients[data.to].send(JSON.stringify(data));
+            else await enqueue(data.to, data);
+            return;
         }
-
-        // ── Typing ───────────────────────────────────────────────────────
-        if (data.type === "typing") {
+        if (data.type === 'read') {
             if (clients[data.to]) clients[data.to].send(JSON.stringify(data));
+            return;
+        }
+        if (data.type === 'reaction') {
+            if (clients[data.to]) clients[data.to].send(JSON.stringify(data));
+            return;
         }
 
-        // ── Создать группу ───────────────────────────────────────────────
-        if (data.type === "createGroup") {
-            // data: { type, name, members: [...nicks] }
-            const groupName = (data.name || '').trim();
-            if (!groupName || groupName.length > 64) return;
-            const members = Array.isArray(data.members) ? data.members : [];
+        // ── signal / typing ────────────────────────────────────────────────
+        if (data.type === 'signal' || data.type === 'typing') {
+            if (clients[data.to]) clients[data.to].send(JSON.stringify(data));
+            return;
+        }
+
+        // ── createGroup ────────────────────────────────────────────────────
+        if (data.type === 'createGroup') {
+            const name = (data.name || '').trim();
+            if (!name || name.length > 64) return;
+            const members = [...new Set(Array.isArray(data.members) ? data.members : [])];
             if (!members.includes(ws.name)) members.push(ws.name);
             if (members.length < 2) return;
-
-            const users = loadUsers();
-            // проверить что все участники существуют
             for (const m of members) {
-                if (!users[m]) return;
+                const u = await db.collection('users').findOne({ nick: m }, { projection: { _id: 1 } });
+                if (!u) return;
             }
-
-            const groups = loadGroups();
-            const groupId = 'g_' + Date.now().toString(36) + '_' + crypto.randomBytes(4).toString('hex');
-            groups[groupId] = { id: groupId, name: groupName, members, creator: ws.name };
-            saveGroups(groups);
-
-            const groupInfo = groups[groupId];
-            // уведомить всех участников
-            for (const member of members) {
-                const msg = JSON.stringify({ type: "groupCreated", group: groupInfo });
-                if (clients[member]) {
-                    clients[member].send(msg);
-                } else {
-                    enqueue(member, { type: "groupCreated", group: groupInfo });
-                }
+            const id = 'g_' + Date.now().toString(36) + '_' + crypto.randomBytes(4).toString('hex');
+            const group = { id, name, members, creator: ws.name };
+            await db.collection('groups').insertOne(group);
+            delete group._id;
+            const notif = { type: 'groupCreated', group };
+            for (const m of members) {
+                if (clients[m]) clients[m].send(JSON.stringify(notif));
+                else await enqueue(m, notif);
             }
             return;
         }
 
-        // ── Добавить участника в группу ──────────────────────────────────
-        if (data.type === "addGroupMember") {
-            // data: { type, groupId, nick }
+        // ── addGroupMember ─────────────────────────────────────────────────
+        if (data.type === 'addGroupMember') {
             const nick = (data.nick || '').trim();
             if (!nick) return;
-            const users = loadUsers();
-            if (!users[nick]) {
-                ws.send(JSON.stringify({ type: "addMemberError", groupId: data.groupId, error: "no_user" }));
-                return;
-            }
-            const groups = loadGroups();
-            const group = groups[data.groupId];
+            const u = await db.collection('users').findOne({ nick }, { projection: { _id: 1 } });
+            if (!u) { ws.send(JSON.stringify({ type: 'addMemberError', groupId: data.groupId, error: 'no_user' })); return; }
+            const group = await db.collection('groups').findOne({ id: data.groupId });
             if (!group || !group.members.includes(ws.name)) return;
             if (group.members.includes(nick)) {
-                ws.send(JSON.stringify({ type: "addMemberError", groupId: data.groupId, error: "already_member" }));
-                return;
+                ws.send(JSON.stringify({ type: 'addMemberError', groupId: data.groupId, error: 'already_member' })); return;
             }
-            group.members.push(nick);
-            saveGroups(groups);
-            // уведомить всех текущих участников (включая отправителя) об обновлённой группе
-            const notif = { type: "groupMemberAdded", groupId: data.groupId, nick, group };
-            for (const member of group.members) {
-                if (clients[member]) {
-                    clients[member].send(JSON.stringify(notif));
-                } else {
-                    enqueue(member, notif);
-                }
+            const newMembers = [...group.members, nick];
+            await db.collection('groups').updateOne({ id: data.groupId }, { $set: { members: newMembers } });
+            delete group._id;
+            const updated = { ...group, members: newMembers };
+            const notif = { type: 'groupMemberAdded', groupId: data.groupId, nick, group: updated };
+            for (const m of newMembers) {
+                if (clients[m]) clients[m].send(JSON.stringify(notif));
+                else await enqueue(m, notif);
             }
             return;
         }
 
-        // ── Групповое сообщение ──────────────────────────────────────────
-        if (data.type === "groupMessage") {
-            // data: { type, groupId, from, text, mediaType, mediaData, fileName, ts, id }
-            const groups = loadGroups();
-            const group = groups[data.groupId];
+        // ── groupMessage / groupEdit / groupDelete / groupTyping / groupRead / groupReaction
+        if (['groupMessage','groupEdit','groupDelete','groupTyping','groupRead','groupReaction'].includes(data.type)) {
+            const group = await db.collection('groups').findOne({ id: data.groupId });
             if (!group || !group.members.includes(ws.name)) return;
-            deliverToGroup(data.groupId, data, ws.name);
-            return;
-        }
-
-        // ── Редактировать групповое сообщение ────────────────────────────
-        if (data.type === "groupEdit") {
-            // data: { type, groupId, from, id, text }
-            const groups = loadGroups();
-            const group = groups[data.groupId];
-            if (!group || !group.members.includes(ws.name)) return;
-            deliverToGroup(data.groupId, data, ws.name);
-            return;
-        }
-
-        // ── Удалить групповое сообщение ──────────────────────────────────
-        if (data.type === "groupDelete") {
-            // data: { type, groupId, from, id }
-            const groups = loadGroups();
-            const group = groups[data.groupId];
-            if (!group || !group.members.includes(ws.name)) return;
-            deliverToGroup(data.groupId, data, ws.name);
-            return;
-        }
-
-        // ── Групповой typing ─────────────────────────────────────────────
-        if (data.type === "groupTyping") {
-            // data: { type, groupId, from }
-            const groups = loadGroups();
-            const group = groups[data.groupId];
-            if (!group || !group.members.includes(ws.name)) return;
-            deliverToGroup(data.groupId, data, ws.name);
-            return;
-        }
-
-        // ── Реакция (ЛС) ─────────────────────────────────────────────────
-        if (data.type === "reaction") {
-            // data: { type, from, to, msgId, emoji }  (emoji=null — снять реакцию)
-            if (clients[data.to]) clients[data.to].send(JSON.stringify(data));
-            return;
-        }
-
-        // ── Реакция (группа) ─────────────────────────────────────────────
-        if (data.type === "groupReaction") {
-            // data: { type, from, groupId, msgId, emoji }
-            const groups = loadGroups();
-            const group = groups[data.groupId];
-            if (!group || !group.members.includes(ws.name)) return;
-            deliverToGroup(data.groupId, data, ws.name);
-            return;
-        }
-
-        // ── Прочитано (ЛС) ───────────────────────────────────────────────
-        if (data.type === "read") {
-            // data: { type, from, to, lastId }
-            if (clients[data.to]) {
-                clients[data.to].send(JSON.stringify(data));
-            }
-            return;
-        }
-
-        // ── Прочитано (группа) ───────────────────────────────────────────
-        if (data.type === "groupRead") {
-            // data: { type, from, groupId, lastId }
-            const groups = loadGroups();
-            const group = groups[data.groupId];
-            if (!group || !group.members.includes(ws.name)) return;
-            deliverToGroup(data.groupId, data, ws.name);
+            await deliverToGroup(data.groupId, data, ws.name);
             return;
         }
     });
@@ -385,5 +299,8 @@ wss.on('connection', ws => {
     });
 });
 
+// ── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Server started on port " + PORT));
+connectDB().then(() => {
+    server.listen(PORT, () => console.log('Server on port ' + PORT));
+}).catch(err => { console.error('DB error:', err); process.exit(1); });
